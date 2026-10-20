@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Миний ачаанууд · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="orders">
+<div class="main">
+  <main class="content">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="index.html" aria-label="Нүүр"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></a>
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+      <a href="orders.html">Миний ачаанууд</a>
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+      <b id="crumb-current">Хүргэлт</b>
+    </nav>
+
+    <section class="page-head">
+      <div>
+        <h1>Миний захиалгууд</h1>
+        <p id="page-sub">Хүргэлтийн бүх захиалгаа эндээс удирдаарай</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary" id="export-btn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Татах</span></button>
+        <button class="icon-btn" id="refresh-btn" aria-label="Шинэчлэх" title="Шинэчлэх"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3v5.5h-5.5"/></svg></button>
+        <a href="new-order.html" class="btn btn-primary" id="new-link"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Шинэ захиалга</a>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <label class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input type="search" id="order-search" placeholder="Захиалгын дугаар, ачааны нэр, хаягаар хайх…" />
+      </label>
+      <div class="segmented" id="status-filter">
+        <button class="active" data-status="all">Бүгд</button>
+        <button data-status="active">Идэвхтэй</button>
+        <button data-status="done">Хүргэгдсэн</button>
+        <button data-status="cancelled">Цуцлагдсан</button>
+      </div>
+    </section>
+
+    <section class="orders" id="orders"><div class="card empty"><p>Ачаалж байна…</p></div></section>
+    <footer class="pager" id="pager"></footer>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const { esc, money, STATUS, icons } = App;
+  const params = new URLSearchParams(location.search);
+  const state = {
+    status: ['active', 'done', 'cancelled'].includes(params.get('status')) ? params.get('status') : 'all',
+    q: params.get('q') || '', page: 1, perPage: 5,
+  };
+  let orders = [];
+  const $ = id => document.getElementById(id);
+
+  const ico = {
+    box: icons.box,
+    pin: '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/></svg>',
+    user: icons.user,
+    restore: '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"/><path d="M4 3v5.5h5.5"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    prev: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
+    next: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
+  };
+
+  async function load(showToast) {
+    try {
+      orders = (await App.api('/api/orders')).orders || [];
+      if (showToast) App.toast('Жагсаалт шинэчлэгдлээ');
+    } catch (e) { App.toast(e.message, 'error'); }
+    render();
+  }
+
+  function filtered() {
+    const q = state.q.trim().toLowerCase();
+    return orders.filter(o =>
+      (state.status === 'all' || STATUS[o.status].group === state.status) &&
+      (!q || [o.no, o.title, o.from, o.to].some(v => String(v || '').toLowerCase().includes(q))));
+  }
+
+  function renderHead() {
+    $('crumb-current').textContent = state.q ? `“${state.q}” хайлт` : 'Хүргэлт';
+    $('page-sub').textContent = state.q ? `“${state.q}” хайлтын үр дүн` : 'Хүргэлтийн бүх захиалгаа эндээс удирдаарай';
+  }
+
+  function orderCard(o) {
+    const s = STATUS[o.status];
+    const needs = (o.needs || []).map(n => `<span class="tag">${esc(n)}</span>`).join('');
+    const action = o.status === 'cancelled'
+      ? `<button class="btn btn-secondary" data-restore="${esc(o.no)}">${ico.restore}Сэргээх</button>` : '';
+    return `
+      <article class="card order">
+        <div class="order-thumb">${ico.box}</div>
+        <div class="order-main">
+          <div class="order-title"><h3>${esc(o.title)}</h3><span class="order-no">№ ${esc(o.no)}</span></div>
+          <div class="order-line">${ico.pin}<span>${esc(o.from)} → ${esc(o.to)}</span></div>
+          <div class="order-line">${ico.user}<span>Үүсгэсэн: <b>${esc(o.creator || '—')}</b></span></div>
+          <div class="tags"><span class="lbl">Шаардлага:</span>${needs || '<span class="tag">Тодорхойгүй</span>'}${o.urgent ? '<span class="tag accent">Яаралтай</span>' : ''}</div>
+        </div>
+        <div class="order-side">
+          <div class="order-price"><small>Тээврийн үнэ</small><b>${money(o.price)}</b></div>
+          <div class="order-stats"><span>Үзсэн <b>${o.views || 0}</b></span><span>Санал <b>${o.offers || 0}</b></span></div>
+        </div>
+        <div class="order-foot">
+          <span class="chip ${s.chip}">${s.label}</span>
+          <time>${esc(o.date)}</time>
+          <span class="order-stats"><span>Хийгдсэн <b>${o.done || 0}</b></span><span>Нийт <b>${o.total || 1}</b></span></span>
+          <div class="btns">${action}<button class="btn btn-primary" data-open="${esc(o.no)}">Дэлгэрэнгүй ${ico.arrow}</button></div>
+        </div>
+      </article>`;
+  }
+
+  function render() {
+    renderHead();
+    document.querySelectorAll('#status-filter button').forEach(x => x.classList.toggle('active', x.dataset.status === state.status));
+    const list = filtered();
+    const pages = Math.max(1, Math.ceil(list.length / state.perPage));
+    state.page = Math.min(state.page, pages);
+    const start = (state.page - 1) * state.perPage;
+    const items = list.slice(start, start + state.perPage);
+
+    $('orders').innerHTML = items.length ? items.map(orderCard).join('') : `
+      <div class="card empty">
+        <div class="order-thumb">${ico.box}</div>
+        <h3>Захиалга олдсонгүй</h3>
+        <p>${state.q || state.status !== 'all' ? 'Шүүлтүүрээ өөрчилж үзээрэй.' : 'Одоогоор захиалга алга. Анхны ачаагаа бүртгээрэй.'}</p>
+        ${state.q || state.status !== 'all'
+          ? '<button class="btn btn-secondary" id="clear-filters">Шүүлтүүр арилгах</button>'
+          : '<a href="new-order.html" class="btn btn-primary">Шинэ захиалга</a>'}
+      </div>`;
+    const clear = $('clear-filters');
+    if (clear) clear.addEventListener('click', () => { state.q = ''; state.status = 'all'; $('order-search').value = ''; syncUrl(); render(); });
+
+    let nums = '';
+    for (let p = 1; p <= pages; p++) nums += `<button data-page="${p}" class="${p === state.page ? 'active' : ''}">${p}</button>`;
+    $('pager').innerHTML = `
+      <span><b>${list.length ? start + 1 : 0}–${start + items.length}</b> / ${list.length} захиалга</span>
+      <nav>
+        <button data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''} aria-label="Өмнөх">${ico.prev}</button>
+        ${nums}
+        <button data-page="${state.page + 1}" ${state.page === pages ? 'disabled' : ''} aria-label="Дараах">${ico.next}</button>
+      </nav>`;
+  }
+
+  function syncUrl() {
+    const p = new URLSearchParams();
+    if (state.status !== 'all') p.set('status', state.status);
+    if (state.q) p.set('q', state.q);
+    history.replaceState(null, '', 'orders.html' + (p.toString() ? '?' + p : ''));
+  }
+
+  async function act(no, action, extra = {}) {
+    try {
+      const d = await App.api('/api/orders/action', { no, action, ...extra });
+      orders = orders.map(o => (o.no === no ? d.order : o));
+      render();
+      App.loadNotifications();
+      return d.order;
+    } catch (e) { App.toast(e.message, 'error'); return null; }
+  }
+
+  // ----- detail modal -----
+  function openDetail(no) {
+    const o = orders.find(x => x.no === no);
+    if (!o) { App.toast('Захиалга олдсонгүй', 'error'); return; }
+    const isAdmin = (Auth.current() || {}).role === 'admin';
+    const s = STATUS[o.status];
+    const row = (k, v) => `<li><span>${k}</span><b>${v}</b></li>`;
+    const m = App.modal({
+      title: `${o.title} · № ${o.no}`, wide: true,
+      html: `
+        <div class="route-box">
+          <div><i></i><span><small>Ачаа авах</small>${esc(o.from)}</span></div>
+          <div><i></i><span><small>Хүргэх</small>${esc(o.to)}</span></div>
+        </div>
+        <div class="detail-grid">
+          <ul class="kv">
+            ${row('Төлөв', `<span class="chip ${s.chip}">${s.label}</span>`)}
+            ${row('Тээврийн үнэ', money(o.price))}
+            ${row('Жин', o.weight ? esc(o.weight) + ' кг' : '—')}
+          </ul>
+          <ul class="kv">
+            ${row('Үүсгэсэн', esc(o.date))}
+            ${row('Авах өдөр', esc(o.pickupDate || 'Тохиролцоно'))}
+            ${row('Шаардлага', esc((o.needs || []).join(', ') || '—') + (o.urgent ? ' · Яаралтай' : ''))}
+            ${row('Санал / Үзсэн', `${o.offers || 0} / ${o.views || 0}`)}
+          </ul>
+        </div>
+        ${o.note ? `<div class="section-title">Тэмдэглэл</div><p style="color:var(--text-2)">${esc(o.note)}</p>` : ''}
+        <div class="section-title">Түүх</div>
+        <ul class="timeline">${(o.history || []).slice().reverse().map(h => `
+          <li class="${h.status === 'cancelled' ? 'alert' : h.status === 'done' ? 'ok' : ''}"><h4>${esc(h.text)}</h4><time>${esc(h.at)}</time></li>`).join('')}</ul>
+        <div class="detail-actions">
+          ${['waiting', 'transit'].includes(o.status) ? '<button class="btn btn-danger" data-act="cancel">Цуцлах</button>' : ''}
+          ${o.status === 'cancelled' ? `<button class="btn btn-secondary" data-act="restore">${ico.restore}Сэргээх</button>` : ''}
+          <a class="btn btn-secondary" href="messages.html">${icons.chat}Жолоочтой чатлах</a>
+          ${isAdmin ? `<span class="grow"></span><label class="hint" for="adm-status">Админ: төлөв</label>
+            <select class="inline-select" id="adm-status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === o.status ? ' selected' : ''}>${v.label}</option>`).join('')}</select>` : ''}
+        </div>`,
+    });
+    const cancelBtn = m.$('[data-act="cancel"]');
+    if (cancelBtn) cancelBtn.addEventListener('click', async () => {
+      if (cancelBtn.dataset.confirm !== '1') { cancelBtn.dataset.confirm = '1'; cancelBtn.textContent = 'Дахин дарж баталгаажуулна уу'; return; }
+      if (await act(o.no, 'cancel')) { m.close(); App.toast('Захиалга цуцлагдлаа'); }
+    });
+    const restoreBtn = m.$('[data-act="restore"]');
+    if (restoreBtn) restoreBtn.addEventListener('click', async () => { if (await act(o.no, 'restore')) { m.close(); App.toast('Захиалга сэргээгдлээ'); } });
+    const sel = m.$('#adm-status');
+    if (sel) sel.addEventListener('change', async () => {
+      if (await act(o.no, 'status', { status: sel.value })) { m.close(); openDetail(o.no); App.toast('Төлөв шинэчлэгдлээ'); }
+    });
+  }
+
+  // ----- events -----
+  $('status-filter').addEventListener('click', e => {
+    const b = e.target.closest('button[data-status]');
+    if (!b) return;
+    state.status = b.dataset.status; state.page = 1; syncUrl(); render();
+  });
+  $('order-search').addEventListener('input', e => { state.q = e.target.value; state.page = 1; syncUrl(); render(); });
+  $('pager').addEventListener('click', e => {
+    const b = e.target.closest('button[data-page]');
+    if (!b || b.disabled) return;
+    state.page = +b.dataset.page; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  $('orders').addEventListener('click', async e => {
+    const r = e.target.closest('[data-restore]');
+    if (r) { if (await act(r.dataset.restore, 'restore')) App.toast('Захиалга сэргээгдлээ'); return; }
+    const d = e.target.closest('[data-open]');
+    if (d) openDetail(d.dataset.open);
+  });
+  $('refresh-btn').addEventListener('click', () => load(true));
+  $('export-btn').addEventListener('click', () => {
+    const list = filtered();
+    if (!list.length) { App.toast('Татах захиалга алга', 'error'); return; }
+    const rows = [['Дугаар', 'Нэр', 'Авах', 'Хүргэх', 'Үнэ', 'Төлөв', 'Огноо']]
+      .concat(list.map(o => [o.no, o.title, o.from, o.to, o.price, STATUS[o.status].label, o.date]));
+    const csv = '﻿' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `zakhialguud-${App.today()}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    App.toast(`${list.length} захиалга татагдлаа`);
+  });
+
+  // top-bar search on this page filters in place
+  window.OrdersPage = { search(v) { state.q = v; $('order-search').value = v; state.page = 1; syncUrl(); render(); } };
+
+  $('order-search').value = state.q;
+  Auth.ready.then(async u => {
+    if (!u) return;
+    await load();
+    const open = params.get('open');
+    if (open) {
+      const o = orders.find(x => x.no === open);
+      if (o) openDetail(open);
+      params.delete('open'); syncUrl();
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Тусламж · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="help">
+<div class="main">
+  <main class="content">
+    <section class="page-head">
+      <div><h1>Тусламж</h1><p>Заавар, түгээмэл асуулт болон бидэнтэй холбогдох</p></div>
+      <div class="page-actions"><a href="messages.html#support" class="btn btn-primary"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Тусламжийн чат</a></div>
+    </section>
+
+    <section id="guides">
+      <div class="card-head" style="margin-bottom:14px"><div><h2>Алхам алхмаар заавар</h2></div></div>
+      <div class="bottom">
+        <article class="card card-pad" id="guide-1">
+          <h2 style="font-size:16px;font-weight:800">1. Анхны ачаагаа бүртгэх</h2>
+          <ol class="guide-steps">
+            <li>Зүүн цэсний “Шинэ ачаа бүртгэх” товчийг дарна.</li>
+            <li>Тээврийн төрлөө сонгоод ачааны нэр, жингээ оруулна.</li>
+            <li>Ачаа авах болон хүргэх хаягаа бичиж, авах өдрөө сонгоно.</li>
+            <li>Тээврийн хэрэгсэл, санал болгох үнээ оруулаад “Захиалга үүсгэх” дарна.</li>
+          </ol>
+          <a href="new-order.html" class="btn btn-secondary" style="margin-top:16px">Одоо бүртгэх</a>
+        </article>
+        <article class="card card-pad" id="guide-2">
+          <h2 style="font-size:16px;font-weight:800">2. Үнийн санал харьцуулах</h2>
+          <ol class="guide-steps">
+            <li>“Миний ачаанууд” хэсэгт захиалгынхаа “Дэлгэрэнгүй”-г нээнэ.</li>
+            <li>Ирсэн саналын тоо болон жолоочийн мэдээллийг харна.</li>
+            <li>Тохирох жолоочтой “Мессеж” хэсгээр шууд ярилцаж тохиролцоно.</li>
+          </ol>
+          <a href="orders.html" class="btn btn-secondary" style="margin-top:16px">Захиалгууд руу</a>
+        </article>
+        <article class="card card-pad" id="guide-3">
+          <h2 style="font-size:16px;font-weight:800">3. Дансаа цэнэглэх</h2>
+          <ol class="guide-steps">
+            <li>“Данс ба нэхэмжлэх” хэсэгт “Цэнэглэх” товчийг дарна.</li>
+            <li>Дүн болон QPay, карт эсвэл банкны шилжүүлгээ сонгоно.</li>
+            <li>Автомат төлөлт асаалттай бол ачаа хүргэгдмэгц жолоочид шууд төлөгдөнө.</li>
+          </ol>
+          <a href="wallet.html" class="btn btn-secondary" style="margin-top:16px">Данс руу</a>
+        </article>
+        <article class="card card-pad" id="guide-4">
+          <h2 style="font-size:16px;font-weight:800">4. Ачаагаа хянах</h2>
+          <ol class="guide-steps">
+            <li>Нүүр самбарын “Ачаа хянах” эсвэл “Миний ачаанууд”-ыг нээнэ.</li>
+            <li>“Идэвхтэй” шүүлтүүрээр замдаа яваа ачаагаа харна.</li>
+            <li>“Дэлгэрэнгүй” дээр дарж захиалгын түүх, төлвийг харна.</li>
+          </ol>
+          <a href="orders.html?status=active" class="btn btn-secondary" style="margin-top:16px">Идэвхтэй ачаа</a>
+        </article>
+      </div>
+    </section>
+
+    <section class="card card-pad faq" id="faq">
+      <div class="card-head"><div><h2>Түгээмэл асуулт</h2></div></div>
+      <details><summary>Захиалгаа хэрхэн цуцлах вэ?</summary><p>“Миний ачаанууд” хэсэгт захиалгын “Дэлгэрэнгүй”-г нээгээд “Цуцлах” товчийг хоёр удаа дарна. Цуцалсан захиалгыг “Сэргээх” товчоор буцааж идэвхжүүлж болно.</p></details>
+      <details><summary>Төлбөрөө хэзээ төлөх вэ?</summary><p>Автомат төлөлт асаалттай үед ачаа хүргэгдмэгц хэтэвчнээс жолоочид төлөгдөнө. Унтраасан бол жолоочтой тохиролцсоноор төлнө.</p></details>
+      <details><summary>Купон хаанаас авах вэ?</summary><p>“Урамшуулал” хэсэгт танд боломжтой купонууд харагдана. Кодыг оруулж “Идэвхжүүлэх” дарахад бонус хэтэвчинд нэмэгдэнэ.</p></details>
+      <details><summary>Байгууллагаар бүртгүүлж болох уу?</summary><p>Тийм. Профайл хэсгийн “Засах” товчоор бүртгэлийн төрлөө “Байгууллага” болгож, регистрийн дугаар болон НӨАТ-ын мэдээллээ оруулна.</p></details>
+      <details><summary>Нууц үгээ хэрхэн солих вэ?</summary><p>“Тохиргоо” хэсэгт одоогийн болон шинэ нууц үгээ оруулна. Солигдсоны дараа бусад төхөөрөмж дээрх нэвтрэлт автоматаар гарна.</p></details>
+    </section>
+
+    <section class="card card-pad" id="contact">
+      <div class="card-head"><div><h2>Холбоо барих</h2><p>Ажлын өдрүүдэд 09:00–18:00</p></div></div>
+      <ul class="kv" style="padding:0">
+        <li><span>Тусламжийн чат</span><b><a href="messages.html#support" style="text-decoration:underline">Чат нээх</a></b></li>
+        <li><span>Имэйл</span><b>support@achaanytuv.mn</b></li>
+        <li><span>Утас</span><b>7000-0000</b></li>
+      </ul>
+    </section>
+
+    <section class="card card-pad" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px"><h2 style="font-size:16px;font-weight:800">Хууль эрх зүй</h2><p class="hint" style="font-size:13px">Үйлчилгээний нөхцөл болон нууцлалын бодлого</p></div>
+      <a href="terms.html#terms" class="btn btn-secondary">Үйлчилгээний нөхцөл</a>
+      <a href="terms.html#privacy" class="btn btn-secondary">Нууцлалын бодлого</a>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+<script>
+  // open the FAQ item / highlight the card linked from elsewhere
+  if (location.hash) {
+    const el = document.querySelector(location.hash);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+</script>
+</body>
+</html>

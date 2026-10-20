@@ -1,0 +1,5 @@
+﻿# never publish the local server, its data or secrets
+server.ps1
+data/
+.mcp.json
+*.zip

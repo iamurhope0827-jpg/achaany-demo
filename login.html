@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Нэвтрэх · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.redirectIfLoggedIn();</script>
+</head>
+<body>
+<div class="auth">
+  <aside class="auth-side">
+    <div class="brand">
+      <span class="brand-mark">А</span>
+      <div class="brand-text"><b>Ачааны төв</b><small>Тээврийн удирдлагын систем</small></div>
+    </div>
+    <div class="auth-pitch">
+      <h2>Ачаагаа илгээх хамгийн <em>хялбар</em> арга.</h2>
+      <p>Захиалгаа бүртгэж, жолоочдоос үнийн санал аваад, хүргэлтээ бодит цагт хянаарай.</p>
+      <ul class="auth-points">
+        <li><span><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg></span><div><b>Бүх захиалга нэг дор</b><small>Хүргэлтээ бүртгэж, явцыг нь нэг дороос хяна</small></div></li>
+        <li><span><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span><div><b>Жолоочтой шууд чат</b><small>Санал харьцуулж, шууд тохиролцоорой</small></div></li>
+        <li><span><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg></span><div><b>Аюулгүй төлбөр</b><small>Хүргэгдмэгц автоматаар төлөгдөнө</small></div></li>
+      </ul>
+    </div>
+    <div class="auth-foot">© <span class="year"></span> Ачааны төв</div>
+  </aside>
+
+  <main class="auth-main">
+    <div class="auth-card">
+      <div class="brand">
+        <span class="brand-mark">А</span>
+        <div class="brand-text"><b>Ачааны төв</b><small>Тээврийн удирдлагын систем</small></div>
+      </div>
+      <h1>Тавтай морил</h1>
+      <p class="lead">Бүртгэлтэй имэйл эсвэл нэвтрэх нэр, нууц үгээрээ нэвтэрнэ үү.</p>
+
+      <form class="auth-form" id="login-form" novalidate>
+        <div class="form-alert error" id="form-error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+        <div class="form-alert info" id="form-info" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span></span></div>
+
+        <div class="field" id="f-email">
+          <label for="email">Имэйл эсвэл нэвтрэх нэр</label>
+          <div class="input">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+            <input type="text" id="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="tanii@email.mn" />
+          </div>
+          <span class="err"></span>
+        </div>
+
+        <div class="field" id="f-password">
+          <label for="password">Нууц үг</label>
+          <div class="input">
+            <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" id="password" autocomplete="current-password" placeholder="••••••••" />
+            <button type="button" class="eye" data-toggle="password" aria-label="Нууц үг харах"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <span class="err"></span>
+        </div>
+
+        <div class="row-between">
+          <label class="check"><input type="checkbox" id="remember" checked />Намайг сана</label>
+          <a href="#" id="forgot">Нууц үгээ мартсан?</a>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit">Нэвтрэх</button>
+      </form>
+
+      <p class="auth-alt">Бүртгэлгүй юу? <a href="register.html" id="to-register">Бүртгүүлэх</a></p>
+    </div>
+  </main>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  document.querySelectorAll('.year').forEach(el => el.textContent = new Date().getFullYear());
+  // Keep ?next= when switching to register
+  $('to-register').href = 'register.html' + location.search;
+
+  // Show / hide password
+  document.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
+    const input = $(btn.dataset.toggle);
+    input.type = input.type === 'password' ? 'text' : 'password';
+    btn.setAttribute('aria-label', input.type === 'password' ? 'Нууц үг харах' : 'Нууц үг нуух');
+  }));
+
+  function setError(fieldId, msg) {
+    const f = $(fieldId);
+    f.classList.toggle('invalid', !!msg);
+    f.querySelector('.err').textContent = msg || '';
+  }
+  function alertBox(id, msg) {
+    $(id).hidden = !msg;
+    $(id).querySelector('span').textContent = msg || '';
+  }
+
+  ['email', 'password'].forEach(id => $(id).addEventListener('input', () => { setError('f-' + id, ''); alertBox('form-error', ''); }));
+
+  $('forgot').addEventListener('click', e => {
+    e.preventDefault();
+    alertBox('form-info', 'Нууц үг сэргээх: support@achaanytuv.mn хаягаар бүртгэлтэй имэйлээ илгээх эсвэл 7000-0000 дугаарт залгана уу. Тусламжийн баг таны бүртгэлийг баталгаажуулаад шинэ нууц үг олгоно.');
+  });
+
+  $('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    alertBox('form-error', ''); alertBox('form-info', '');
+    const email = $('email').value.trim();
+    const password = $('password').value;
+    let ok = true;
+    if (!email) { setError('f-email', 'Имэйл эсвэл нэвтрэх нэрээ оруулна уу.'); ok = false; }
+    else if (email.includes('@') && !Auth.validateEmail(email)) { setError('f-email', 'Имэйлийн хаяг буруу байна.'); ok = false; }
+    if (!password) { setError('f-password', 'Нууц үгээ оруулна уу.'); ok = false; }
+    if (!ok) return;
+
+    $('submit').disabled = true;
+    $('submit').textContent = 'Нэвтэрч байна…';
+    try {
+      await Auth.login(email, password, $('remember').checked);
+      location.replace(Auth.nextUrl());
+    } catch (err) {
+      alertBox('form-error', err.message);
+      $('submit').disabled = false;
+      $('submit').textContent = 'Нэвтрэх';
+    }
+  });
+
+  // Prefill email after registration redirect, e.g. login.html?email=...
+  const pre = new URLSearchParams(location.search).get('email');
+  if (pre) $('email').value = pre;
+  ($('email').value ? $('password') : $('email')).focus();
+</script>
+</body>
+</html>

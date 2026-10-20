@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Данс ба нэхэмжлэх · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="wallet">
+<div class="main">
+  <main class="content">
+    <section class="page-head">
+      <div><h1>Данс ба нэхэмжлэх</h1><p>Хэтэвчний үлдэгдэл, гүйлгээ болон төлбөрийн баримтууд</p></div>
+      <div class="page-actions">
+        <a href="promotions.html" class="btn btn-secondary"><svg viewBox="0 0 24 24"><path d="M3 9h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z"/></svg>Купон ашиглах</a>
+        <button class="btn btn-primary" id="topup-top"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Цэнэглэх</button>
+      </div>
+    </section>
+
+    <section class="wallet-grid">
+      <div class="balance">
+        <div class="balance-top"><span>Хэтэвчний үлдэгдэл</span><span class="tag-light" id="plan-tag">Багц аваагүй</span></div>
+        <div class="amount" id="balance">0₮</div>
+        <div class="sub" id="plan-sub">Гишүүнчлэлийн багц идэвхгүй</div>
+        <div class="balance-actions">
+          <button id="topup-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Цэнэглэх</button>
+          <a href="profile.html#plans" class="balance-link"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Багц</a>
+          <a href="promotions.html" class="balance-link"><svg viewBox="0 0 24 24"><path d="M3 9h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z"/></svg>Купон</a>
+        </div>
+        <div class="autopay">
+          <span>Ачаа хүргэгдмэгц жолоочид автоматаар төлөх</span>
+          <button class="switch" id="autopay" role="switch" aria-checked="true" aria-label="Автомат төлөлт"></button>
+        </div>
+      </div>
+
+      <div class="card card-pad" id="transactions">
+        <div class="card-head">
+          <div><h2>Гүйлгээний түүх</h2><p id="tx-sub">Бүх орлого, зарлага</p></div>
+          <div class="segmented" id="tx-filter">
+            <button class="active" data-k="all">Бүгд</button>
+            <button data-k="topup">Цэнэглэлт</button>
+            <button data-k="plan">Багц</button>
+            <button data-k="coupon">Урамшуулал</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Огноо</th><th>Гүйлгээ</th><th>Хэрэгсэл</th><th class="price">Дүн</th><th class="price">Үлдэгдэл</th></tr></thead>
+            <tbody id="tx-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card card-pad" id="invoices">
+      <div class="card-head"><div><h2>Нэхэмжлэх ба баримт</h2><p>Төлбөр бүрийн баримтыг харж, хэвлэнэ</p></div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Баримтын №</th><th>Тайлбар</th><th>Огноо</th><th class="price">Дүн</th><th></th></tr></thead>
+          <tbody id="inv-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const { esc, money } = App;
+  const $ = id => document.getElementById(id);
+  let txs = [];
+  let kind = 'all';
+  const KIND = { topup: 'Цэнэглэлт', plan: 'Багц', coupon: 'Урамшуулал' };
+
+  function renderUser(u) {
+    $('balance').textContent = money(u.wallet);
+    $('plan-tag').textContent = u.plan ? `${u.plan} багц` : 'Багц аваагүй';
+    $('plan-sub').textContent = u.plan ? `${u.plan} багц · ${u.planUntil} хүртэл` : 'Гишүүнчлэлийн багц идэвхгүй';
+    const on = u.settings ? u.settings.autopay : true;
+    $('autopay').classList.toggle('off', !on);
+    $('autopay').setAttribute('aria-checked', on);
+  }
+
+  function renderTx() {
+    const list = txs.filter(t => kind === 'all' || t.kind === kind);
+    $('tx-sub').textContent = `${list.length} гүйлгээ`;
+    $('tx-body').innerHTML = list.length ? list.map(t => `
+      <tr>
+        <td class="muted">${esc(t.at)}</td>
+        <td><b>${esc(t.title)}</b><br><small class="hint">${KIND[t.kind] || ''} · ${esc(t.no)}</small></td>
+        <td class="muted">${esc(t.method)}</td>
+        <td class="price ${t.amount >= 0 ? 'amount-pos' : 'amount-neg'}">${t.amount >= 0 ? '+' : '−'}${money(Math.abs(t.amount))}</td>
+        <td class="price">${money(t.balanceAfter)}</td>
+      </tr>`).join('') : `<tr><td colspan="5"><div class="empty-inline"><b>Гүйлгээ алга</b>Дансаа цэнэглэхэд энд харагдана.</div></td></tr>`;
+
+    $('inv-body').innerHTML = txs.length ? txs.map(t => `
+      <tr>
+        <td class="id">${esc(t.no)}</td>
+        <td>${esc(t.title)}</td>
+        <td class="muted">${esc(t.at)}</td>
+        <td class="price">${money(Math.abs(t.amount))}</td>
+        <td class="price"><button class="btn btn-ghost" data-receipt="${esc(t.id)}">Баримт харах</button></td>
+      </tr>`).join('') : `<tr><td colspan="5"><div class="empty-inline"><b>Баримт алга</b>Төлбөр хийсний дараа баримт энд үүснэ.</div></td></tr>`;
+  }
+
+  function receipt(id) {
+    const t = txs.find(x => x.id === id);
+    const u = Auth.current();
+    if (!t || !u) return;
+    const m = App.modal({
+      title: 'Төлбөрийн баримт',
+      html: `
+        <div class="receipt">
+          <div class="receipt-head">
+            <div><b>Ачааны төв</b><br><small class="hint">Тээврийн удирдлагын систем</small></div>
+            <div style="text-align:right"><b style="font-size:14px">${esc(t.no)}</b><br><small class="hint">${esc(t.at)}</small></div>
+          </div>
+          <ul class="kv" style="padding:0">
+            <li><span>Төлөгч</span><b>${esc(u.name)}</b></li>
+            <li><span>Регистр</span><b>${esc(u.regNo || '—')}</b></li>
+            <li><span>Партнерийн код</span><b>${esc(u.partnerCode || '—')}</b></li>
+            <li><span>Гүйлгээ</span><b>${esc(t.title)}</b></li>
+            <li><span>Төлбөрийн хэрэгсэл</span><b>${esc(t.method)}</b></li>
+            <li><span>Гүйлгээний дараах үлдэгдэл</span><b>${money(t.balanceAfter)}</b></li>
+          </ul>
+          <div class="receipt-total"><span>${t.amount >= 0 ? 'Орлого' : 'Төлсөн дүн'}</span><span>${money(Math.abs(t.amount))}</span></div>
+          <div class="modal-actions no-print">
+            <button class="btn btn-secondary" data-close>Хаах</button>
+            <button class="btn btn-primary" id="print-btn"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6h-2"/><rect x="6" y="14" width="12" height="7"/></svg>Хэвлэх</button>
+          </div>
+        </div>`,
+    });
+    m.$('#print-btn').addEventListener('click', () => window.print());
+  }
+
+  async function load() {
+    try {
+      const d = await App.api('/api/wallet');
+      txs = d.transactions || [];
+    } catch (e) { App.toast(e.message, 'error'); }
+    renderTx();
+  }
+
+  const onTopup = u => { renderUser(u); load(); };
+  $('topup-btn').addEventListener('click', () => App.topup(onTopup));
+  $('topup-top').addEventListener('click', () => App.topup(onTopup));
+  $('tx-filter').addEventListener('click', e => {
+    const b = e.target.closest('[data-k]');
+    if (!b) return;
+    kind = b.dataset.k;
+    $('tx-filter').querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+    renderTx();
+  });
+  $('inv-body').addEventListener('click', e => { const b = e.target.closest('[data-receipt]'); if (b) receipt(b.dataset.receipt); });
+  $('autopay').addEventListener('click', async () => {
+    const on = $('autopay').getAttribute('aria-checked') !== 'true';
+    try {
+      const d = await App.api('/api/settings', { autopay: on });
+      Auth.setUser(d.user); renderUser(d.user);
+      App.toast(on ? 'Автомат төлөлт асаалаа' : 'Автомат төлөлт унтраалаа');
+    } catch (e) { App.toast(e.message, 'error'); }
+  });
+
+  Auth.ready.then(u => { if (!u) return; renderUser(u); load(); });
+</script>
+</body>
+</html>

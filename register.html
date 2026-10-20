@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Бүртгүүлэх · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.redirectIfLoggedIn();</script>
+</head>
+<body>
+<div class="auth">
+  <aside class="auth-side">
+    <div class="brand">
+      <span class="brand-mark">А</span>
+      <div class="brand-text"><b>Ачааны төв</b><small>Тээврийн удирдлагын систем</small></div>
+    </div>
+    <div class="auth-pitch">
+      <h2>Хэдхэн минутад <em>бүртгүүлээд</em> эхлээрэй.</h2>
+      <p>Нэг бүртгэлээр бүх хүргэлтээ удирдана.</p>
+      <ul class="auth-points">
+        <li><span><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><div><b>Ачаагаа бүртгэ</b><small>Хаяг, хэмжээ, хугацаагаа оруулна</small></div></li>
+        <li><span><svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span><div><b>Санал ав</b><small>Жолоочид үнийн санал илгээнэ</small></div></li>
+        <li><span><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/></svg></span><div><b>Хүргэлтээ хяна</b><small>Явцыг бодит цагт харна</small></div></li>
+      </ul>
+    </div>
+    <div class="auth-foot">© <span class="year"></span> Ачааны төв</div>
+  </aside>
+
+  <main class="auth-main">
+    <div class="auth-card">
+      <div class="brand">
+        <span class="brand-mark">А</span>
+        <div class="brand-text"><b>Ачааны төв</b><small>Тээврийн удирдлагын систем</small></div>
+      </div>
+      <h1>Бүртгүүлэх</h1>
+      <p class="lead">Шинэ бүртгэл үүсгээд ачаагаа илгээж эхлээрэй.</p>
+
+      <form class="auth-form" id="register-form" novalidate>
+        <div class="form-alert error" id="form-error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+
+        <div class="field">
+          <label>Бүртгэлийн төрөл</label>
+          <div class="type-pick">
+            <label><input type="radio" name="type" value="Хувь хүн" checked /><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Хувь хүн</label>
+            <label><input type="radio" name="type" value="Байгууллага" /><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg>Байгууллага</label>
+          </div>
+        </div>
+
+        <div class="field" id="f-name">
+          <label for="name" id="name-label">Овог нэр</label>
+          <div class="input">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+            <input type="text" id="name" autocomplete="name" placeholder="Жишээ: Болд Бат" />
+          </div>
+          <span class="err"></span>
+        </div>
+
+        <div class="field" id="f-email">
+          <label for="email">Имэйл</label>
+          <div class="input">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+            <input type="email" id="email" autocomplete="email" placeholder="tanii@email.mn" />
+          </div>
+          <span class="err"></span>
+        </div>
+
+        <div class="field" id="f-password">
+          <label for="password">Нууц үг</label>
+          <div class="input">
+            <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" id="password" autocomplete="new-password" placeholder="Хамгийн багадаа 8 тэмдэгт" />
+            <button type="button" class="eye" data-toggle="password" aria-label="Нууц үг харах"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div class="strength" id="strength" data-score="0"><i></i><i></i><i></i><i></i></div>
+          <span class="hint" id="strength-text">Том, жижиг үсэг, тоо, тэмдэгт хольж хэрэглээрэй.</span>
+          <span class="err"></span>
+        </div>
+
+        <div class="field" id="f-confirm">
+          <label for="confirm">Нууц үг давтах</label>
+          <div class="input">
+            <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <input type="password" id="confirm" autocomplete="new-password" placeholder="Нууц үгээ дахин оруулна уу" />
+            <button type="button" class="eye" data-toggle="confirm" aria-label="Нууц үг харах"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <span class="err"></span>
+        </div>
+
+        <div class="field" id="f-terms">
+          <label class="check"><input type="checkbox" id="terms" /><span><a href="terms.html#terms" target="_blank" rel="noopener">Үйлчилгээний нөхцөл</a> болон <a href="terms.html#privacy" target="_blank" rel="noopener">Нууцлалын бодлого</a>-г зөвшөөрч байна.</span></label>
+          <span class="err"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit">Бүртгүүлэх</button>
+      </form>
+
+      <p class="auth-alt">Бүртгэлтэй юу? <a href="login.html" id="to-login">Нэвтрэх</a></p>
+    </div>
+  </main>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  document.querySelectorAll('.year').forEach(el => el.textContent = new Date().getFullYear());
+  $('to-login').href = 'login.html' + location.search;
+
+  document.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
+    const input = $(btn.dataset.toggle);
+    input.type = input.type === 'password' ? 'text' : 'password';
+    btn.setAttribute('aria-label', input.type === 'password' ? 'Нууц үг харах' : 'Нууц үг нуух');
+  }));
+
+  // Organisation accounts ask for the company name instead
+  document.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', () => {
+    const org = r.value === 'Байгууллага' && r.checked;
+    if (!r.checked) return;
+    $('name-label').textContent = org ? 'Байгууллагын нэр' : 'Овог нэр';
+    $('name').placeholder = org ? 'Жишээ: Тэс Логистик ХХК' : 'Жишээ: Болд Бат';
+    $('name').autocomplete = org ? 'organization' : 'name';
+  }));
+
+  function setError(fieldId, msg) {
+    const f = $(fieldId);
+    f.classList.toggle('invalid', !!msg);
+    f.querySelector('.err').textContent = msg || '';
+  }
+  function formError(msg) {
+    $('form-error').hidden = !msg;
+    $('form-error').querySelector('span').textContent = msg || '';
+  }
+
+  const LABELS = ['Хэт сул', 'Сул', 'Дунд', 'Сайн', 'Маш сайн'];
+  $('password').addEventListener('input', () => {
+    const p = $('password').value;
+    const s = p ? Auth.passwordScore(p) : 0;
+    $('strength').dataset.score = p ? Math.max(s, 1) : 0;
+    $('strength-text').textContent = p ? `Нууц үгийн хүч: ${LABELS[s]}` : 'Том, жижиг үсэг, тоо, тэмдэгт хольж хэрэглээрэй.';
+  });
+
+  ['name', 'email', 'password', 'confirm'].forEach(id => $(id).addEventListener('input', () => { setError('f-' + id, ''); formError(''); }));
+  $('terms').addEventListener('change', () => setError('f-terms', ''));
+  $('email').addEventListener('blur', async () => {
+    const v = $('email').value.trim();
+    if (v && Auth.validateEmail(v) && await Auth.exists(v) && $('email').value.trim() === v)
+      setError('f-email', 'Энэ имэйлээр бүртгэл үүссэн байна.');
+  });
+
+  function validate() {
+    const name = $('name').value.trim();
+    const email = $('email').value.trim();
+    const password = $('password').value;
+    const confirm = $('confirm').value;
+    const errors = {};
+    if (name.length < 2) errors.name = 'Нэрээ бүтнээр оруулна уу.';
+    if (!email) errors.email = 'Имэйлээ оруулна уу.';
+    else if (!Auth.validateEmail(email)) errors.email = 'Имэйлийн хаяг буруу байна.';
+    if (password.length < 8) errors.password = 'Нууц үг хамгийн багадаа 8 тэмдэгт байна.';
+    else if (Auth.passwordScore(password) < 2) errors.password = 'Нууц үг хэт энгийн байна. Тоо эсвэл том үсэг нэмээрэй.';
+    if (!confirm) errors.confirm = 'Нууц үгээ давтан оруулна уу.';
+    else if (confirm !== password) errors.confirm = 'Нууц үг таарахгүй байна.';
+    if (!$('terms').checked) errors.terms = 'Үргэлжлүүлэхийн тулд нөхцөлийг зөвшөөрнө үү.';
+    ['name', 'email', 'password', 'confirm', 'terms'].forEach(k => setError('f-' + k, errors[k]));
+    const first = Object.keys(errors)[0];
+    if (first) (first === 'terms' ? $('terms') : $(first)).focus();
+    return !first && { name, email, password, type: document.querySelector('input[name="type"]:checked').value };
+  }
+
+  $('register-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    formError('');
+    const data = validate();
+    if (!data) return;
+    $('submit').disabled = true;
+    $('submit').textContent = 'Бүртгэж байна…';
+    try {
+      await Auth.register(data);
+      location.replace(Auth.nextUrl());
+    } catch (err) {
+      if (err.field && $('f-' + err.field)) { setError('f-' + err.field, err.message); $(err.field).focus(); }
+      else formError(err.message);
+      $('submit').disabled = false;
+      $('submit').textContent = 'Бүртгүүлэх';
+    }
+  });
+
+  $('name').focus();
+</script>
+</body>
+</html>

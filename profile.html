@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Профайл · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="profile">
+<div class="main">
+  <main class="content">
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="index.html" aria-label="Нүүр"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></a>
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+      <b>Профайл</b>
+    </nav>
+
+    <section class="card profile-head">
+      <div class="p-avatar" id="p-avatar">—</div>
+      <div class="p-info">
+        <h1 id="p-name">…</h1>
+        <div class="badges" id="p-badges"></div>
+        <div class="p-meta" id="p-meta"></div>
+      </div>
+      <div class="p-actions">
+        <button class="btn btn-primary" id="plan-btn"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>Багц авах</button>
+        <button class="btn btn-danger" id="logout-btn"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 8l-4 4 4 4M6 12h10"/></svg>Системээс гарах</button>
+      </div>
+    </section>
+
+    <section class="kpis">
+      <a href="orders.html" class="card kpi"><div class="kpi-top"><span class="kpi-label">Нийт захиалга</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span></div><div class="kpi-value" id="k-orders">0</div></a>
+      <a href="orders.html?status=done" class="card kpi"><div class="kpi-top"><span class="kpi-label">Тээвэрлэсэн ачаа</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg></span></div><div class="kpi-value" id="k-done">0</div></a>
+      <a href="orders.html?status=active" class="card kpi"><div class="kpi-top"><span class="kpi-label">Нийт үнийн санал</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span></div><div class="kpi-value" id="k-offers">0</div></a>
+      <button class="card kpi" id="k-managers-card" style="text-align:left"><div class="kpi-top"><span class="kpi-label">Менежерийн тоо</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5M16 5a3 3 0 0 1 0 6M18 15c2 .6 3 2.4 3.3 5"/></svg></span></div><div class="kpi-value" id="k-managers">0</div></button>
+    </section>
+
+    <section class="info-grid">
+      <article class="card info-card">
+        <header>
+          <span class="kpi-ico"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg></span>
+          <h2 id="org-title">Байгууллагын мэдээлэл</h2>
+          <button class="btn btn-ghost" id="edit-btn"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>Засах</button>
+        </header>
+        <ul class="kv" id="org-info"></ul>
+      </article>
+
+      <article class="card info-card">
+        <header>
+          <span class="kpi-ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><path d="M17 11l1.5 1.5L21 10"/></svg></span>
+          <h2>Менежерийн мэдээлэл</h2>
+        </header>
+        <ul class="kv" id="mgr-info"></ul>
+        <footer><button class="btn btn-secondary" id="managers-btn"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5M16 5a3 3 0 0 1 0 6M18 15c2 .6 3 2.4 3.3 5"/></svg><span id="managers-label">Менежерүүд (0)</span></button></footer>
+      </article>
+
+      <article class="card info-card" id="plans">
+        <header>
+          <span class="kpi-ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+          <h2>Гишүүнчлэлийн багц</h2>
+        </header>
+        <ul class="kv" id="plan-info"></ul>
+        <footer><a href="wallet.html#invoices" class="btn btn-secondary"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg>Нэхэмжлэл харах</a></footer>
+      </article>
+    </section>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const { esc, money } = App;
+  const $ = id => document.getElementById(id);
+  const day = iso => (iso ? String(iso).slice(0, 10) : '');
+  const none = '<b class="none">—</b>';
+  const val = v => (v ? `<b>${esc(v)}</b>` : none);
+  const row = (label, html) => `<li><span>${label}</span>${html}</li>`;
+  const yes = on => `<b class="${on ? 'good' : ''}">${on ? 'Тийм' : 'Үгүй'}</b>`;
+  const ROLES = { admin: 'Супер админ', manager: 'Менежер', user: 'Хэрэглэгч' };
+  const ico = {
+    check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>',
+    cal: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    key: '<svg viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/></svg>',
+    shield: '<svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>',
+    hash: '<svg viewBox="0 0 24 24"><path d="M5 9h14M5 15h14M10 3L8 21M16 3l-2 18"/></svg>',
+    phone: '<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  };
+
+  function render(u) {
+    const org = u.type === 'Байгууллага';
+    const active = u.status !== 'inactive';
+    const hasPlan = !!u.plan;
+    const managers = u.managers || [];
+    $('p-avatar').textContent = App.initials(u.name);
+    $('p-avatar').classList.toggle('inactive', !active);
+    $('p-name').textContent = u.name;
+    $('p-badges').innerHTML = `
+      <span class="badge ${active ? 'ok' : 'muted'}">${ico.check}${active ? 'Идэвхтэй' : 'Идэвхгүй'}</span>
+      <span class="badge ${hasPlan ? 'ok' : 'warn'}">${ico.cal}${hasPlan ? esc(u.plan) + ' багц' : 'Багц аваагүй'}</span>
+      <span class="badge ${u.role === 'admin' ? 'role' : 'muted'}">${ico.key}${ROLES[u.role] || ROLES.user}</span>`;
+    $('p-meta').innerHTML = `
+      <span>${ico.shield}Регистр: <b>${esc(u.regNo) || '—'}</b></span>
+      <span>${ico.hash}Код: <b>${esc(u.partnerCode) || '—'}</b></span>
+      <span>${ico.phone}<b>${esc(u.phone) || '—'}</b></span>`;
+    $('plan-btn').lastChild.textContent = hasPlan ? 'Багц сунгах' : 'Багц авах';
+
+    $('org-title').textContent = org ? 'Байгууллагын мэдээлэл' : 'Хувийн мэдээлэл';
+    $('org-info').innerHTML = [
+      row('Нэр', val(u.name)), row('Бүртгэлийн төрөл', val(u.type)), row('Регистрийн дугаар', val(u.regNo)),
+      row('Партнерийн код', val(u.partnerCode)), row('Утас', val(u.phone)), row('И-мэйл', val(u.email)),
+      u.username ? row('Нэвтрэх нэр', val(u.username)) : '',
+      row('Үйл ажиллагааны чиглэл', val(u.sector)), row('НӨАТ төлөгч', yes(u.vatPayer)),
+      row('Регистр баталгаажсан', yes(u.regVerified)), row('Бүртгүүлсэн', val(day(u.createdAt))),
+      row('Төлөв', `<b class="${active ? 'good' : 'bad'}">${active ? 'Идэвхтэй' : 'Идэвхгүй'}</b>`),
+    ].join('');
+    $('mgr-info').innerHTML = [
+      row('Нэр', val(u.name)), row('Утас', val(u.phone)), row('И-мэйл', val(u.email)),
+      row('Эрх', `<b>${ROLES[u.role] || ROLES.user}</b>`), row('Бүртгүүлсэн', val(day(u.createdAt))),
+      row('Сүүлд нэвтэрсэн', val(day(u.lastLogin))),
+    ].join('');
+    $('plan-info').innerHTML = [
+      row('Багц', hasPlan ? val(u.plan) : '<b>Багц аваагүй</b>'),
+      row('Төлөв', `<b class="${hasPlan ? 'good' : 'bad'}">${hasPlan ? 'Идэвхтэй' : 'Идэвхгүй'}</b>`),
+      row('Дуусах хугацаа', val(day(u.planUntil))),
+      row('Хэтэвчний үлдэгдэл', `<b>${money(u.wallet)}</b>`),
+      row('Салбарын чиглэл', val(u.sector)),
+    ].join('');
+    $('k-managers').textContent = managers.length;
+    $('managers-label').textContent = `Менежерүүд (${managers.length})`;
+  }
+  const refresh = u => { Auth.setUser(u); render(u); };
+
+  // ----- edit profile -----
+  function openEdit() {
+    const u = Auth.current();
+    const m = App.modal({
+      title: 'Мэдээлэл засах',
+      html: `
+        <form class="auth-form" novalidate>
+          <div class="form-alert error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+          <div class="field"><label>Бүртгэлийн төрөл</label>
+            <div class="type-pick">${['Хувь хүн', 'Байгууллага'].map(t => `<label><input type="radio" name="type" value="${t}"${u.type === t ? ' checked' : ''} />${t}</label>`).join('')}</div>
+          </div>
+          <div class="field" data-field="name"><label for="f-name">Нэр</label><div class="input"><input id="f-name" value="${esc(u.name)}" /></div><span class="err"></span></div>
+          <div class="row-2">
+            <div class="field" data-field="phone"><label for="f-phone">Утас</label><div class="input"><input id="f-phone" inputmode="numeric" maxlength="8" value="${esc(u.phone)}" placeholder="99112233" /></div><span class="err"></span></div>
+            <div class="field" data-field="regNo"><label for="f-reg">Регистрийн дугаар</label><div class="input"><input id="f-reg" maxlength="20" value="${esc(u.regNo)}" placeholder="АА00112233" /></div><span class="err"></span></div>
+          </div>
+          <div class="field"><label for="f-sector">Үйл ажиллагааны чиглэл</label><div class="input"><select id="f-sector">
+            ${['Бусад', 'Худалдаа', 'Хүнс', 'Барилга', 'Үйлдвэрлэл', 'Логистик', 'Цахим худалдаа'].map(s => `<option${u.sector === s ? ' selected' : ''}>${s}</option>`).join('')}
+          </select></div></div>
+          <label class="check"><input type="checkbox" id="f-vat"${u.vatPayer ? ' checked' : ''} />НӨАТ төлөгч</label>
+          <div class="modal-actions"><button type="button" class="btn btn-secondary" data-close>Болих</button><button type="submit" class="btn btn-primary">Хадгалах</button></div>
+        </form>`,
+    });
+    const f = m.$('form');
+    m.$('#f-phone').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8); });
+    f.addEventListener('input', e => { const fd = e.target.closest('[data-field]'); if (fd) App.fieldError(f, fd.dataset.field, ''); });
+    f.addEventListener('submit', async e => {
+      e.preventDefault();
+      const data = {
+        type: f.querySelector('input[name="type"]:checked')?.value, name: m.$('#f-name').value.trim(),
+        phone: m.$('#f-phone').value.trim(), regNo: m.$('#f-reg').value.trim(), sector: m.$('#f-sector').value, vatPayer: m.$('#f-vat').checked,
+      };
+      if (data.name.length < 2) { App.fieldError(f, 'name', 'Нэрээ бүтнээр оруулна уу.'); return; }
+      if (data.phone && !/^\d{8}$/.test(data.phone)) { App.fieldError(f, 'phone', 'Утасны дугаар 8 оронтой байна.'); return; }
+      try { refresh(await Auth.updateProfile(data)); m.close(); App.toast('Мэдээлэл хадгалагдлаа'); }
+      catch (err) { if (!(err.field && App.fieldError(f, err.field, err.message))) App.formAlert(f, err.message); }
+    });
+  }
+
+  // ----- plans -----
+  async function openPlans() {
+    let plans = [];
+    try { plans = (await App.api('/api/plans')).plans; } catch (e) { App.toast(e.message, 'error'); return; }
+    const u = Auth.current();
+    const perks = {
+      standard: ['Сард 30 хүртэл захиалга', 'Имэйл дэмжлэг', 'Үндсэн тайлан'],
+      business: ['Хязгааргүй захиалга', 'Тээврийн шимтгэл −5%', '3 хүртэл менежер', 'Тэргүүлэх дэмжлэг'],
+      corporate: ['Хязгааргүй захиалга', 'Тээврийн шимтгэл −10%', '10 хүртэл менежер', 'Хувийн менежер'],
+    };
+    const m = App.modal({
+      title: 'Гишүүнчлэлийн багц', wide: true,
+      html: `
+        <p class="hint" style="font-size:13px;margin-bottom:16px">Хэтэвчний үлдэгдэл: <b style="color:var(--ink)">${money(u.wallet)}</b> · 30 хоногийн хугацаатай. ${u.plan ? `Одоогийн багц: <b style="color:var(--ink)">${esc(u.plan)}</b> (${esc(u.planUntil)} хүртэл)` : ''}</p>
+        <div class="form-alert error" hidden style="margin-bottom:14px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+        <div class="plan-grid">${plans.map(p => `
+          <div class="plan${p.id === 'business' ? ' featured' : ''}">
+            <h3>${esc(p.name)}</h3>
+            <div class="price">${money(p.price)} <small>/ 30 хоног</small></div>
+            <ul>${(perks[p.id] || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+            <button class="btn ${p.id === 'business' ? 'btn-primary' : 'btn-secondary'}" data-plan="${p.id}">${u.plan === p.name ? 'Сунгах' : 'Сонгох'}</button>
+          </div>`).join('')}</div>
+        <div class="modal-actions" style="margin-top:16px;justify-content:space-between"><span class="hint">Үлдэгдэл хүрэхгүй бол эхлээд цэнэглэнэ үү.</span><button class="btn btn-secondary" id="plan-topup">Данс цэнэглэх</button></div>`,
+    });
+    m.$('#plan-topup').addEventListener('click', () => { m.close(); App.topup(u2 => { render(u2); openPlans(); }); });
+    m.el.querySelectorAll('[data-plan]').forEach(b => b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        const d = await App.api('/api/plan', { plan: b.dataset.plan });
+        refresh(d.user); m.close();
+        App.toast(`${d.user.plan} багц ${d.user.planUntil} хүртэл идэвхжлээ`);
+        App.loadNotifications();
+      } catch (e) { App.formAlert(m.el, e.message); b.disabled = false; }
+    }));
+  }
+
+  // ----- managers -----
+  function openManagers() {
+    const m = App.modal({ title: 'Менежерүүд', html: '<div id="mgr-wrap"></div>' });
+    const draw = () => {
+      const list = (Auth.current().managers || []);
+      m.$('#mgr-wrap').innerHTML = `
+        ${list.length ? `<ul class="kv" style="padding:0;margin-bottom:18px">${list.map(x => `
+          <li><span><b style="color:var(--ink);display:block;text-align:left">${esc(x.name)}</b>${esc(x.phone)}${x.email ? ' · ' + esc(x.email) : ''}</span>
+          <button class="icon-btn" data-remove="${esc(x.id)}" aria-label="Устгах" title="Устгах" style="width:36px;height:36px">${ico.trash}</button></li>`).join('')}</ul>`
+          : '<div class="empty-inline" style="padding:12px 0 20px"><b>Менежер нэмээгүй байна</b>Захиалгаа хамтран удирдах ажилтнаа нэмээрэй.</div>'}
+        <div class="section-title" style="margin-top:0">Шинэ менежер нэмэх</div>
+        <form class="auth-form" novalidate>
+          <div class="form-alert error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+          <div class="field" data-field="m-name"><label for="m-name">Нэр</label><div class="input"><input id="m-name" placeholder="Жишээ: Бат" /></div><span class="err"></span></div>
+          <div class="row-2">
+            <div class="field" data-field="m-phone"><label for="m-phone">Утас</label><div class="input"><input id="m-phone" inputmode="numeric" maxlength="8" placeholder="99112233" /></div><span class="err"></span></div>
+            <div class="field" data-field="m-email"><label for="m-email">Имэйл (заавал биш)</label><div class="input"><input id="m-email" type="email" /></div><span class="err"></span></div>
+          </div>
+          <div class="modal-actions"><button type="button" class="btn btn-secondary" data-close>Хаах</button><button type="submit" class="btn btn-primary">Нэмэх</button></div>
+        </form>`;
+      const f = m.$('form');
+      m.$('#m-phone').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8); });
+      f.addEventListener('input', e => { const fd = e.target.closest('[data-field]'); if (fd) App.fieldError(f, fd.dataset.field, ''); });
+      f.addEventListener('submit', async e => {
+        e.preventDefault();
+        try {
+          const d = await App.api('/api/managers', { name: m.$('#m-name').value.trim(), phone: m.$('#m-phone').value.trim(), email: m.$('#m-email').value.trim() });
+          refresh(d.user); App.toast('Менежер нэмэгдлээ'); draw();
+        } catch (err) { if (!(err.field && App.fieldError(f, err.field, err.message))) App.formAlert(f, err.message); }
+      });
+      m.el.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
+        if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.style.color = 'var(--sunset)'; b.title = 'Дахин дарж устгана'; App.toast('Устгахын тулд дахин дарна уу'); return; }
+        try { const d = await App.api('/api/managers/remove', { id: b.dataset.remove }); refresh(d.user); App.toast('Менежер устгагдлаа'); draw(); }
+        catch (err) { App.toast(err.message, 'error'); }
+      }));
+    };
+    draw();
+  }
+
+  $('edit-btn').addEventListener('click', openEdit);
+  $('plan-btn').addEventListener('click', openPlans);
+  $('managers-btn').addEventListener('click', openManagers);
+  $('k-managers-card').addEventListener('click', openManagers);
+  $('logout-btn').addEventListener('click', () => Auth.logout());
+
+  Auth.ready.then(async u => {
+    if (!u) return;
+    render(u);
+    if (location.hash === '#plans') openPlans();
+    try {
+      const orders = (await App.api('/api/orders')).orders || [];
+      $('k-orders').textContent = orders.length;
+      $('k-done').textContent = orders.filter(o => o.status === 'done').length;
+      $('k-offers').textContent = orders.reduce((s, o) => s + (o.offers || 0), 0);
+    } catch { }
+  });
+</script>
+</body>
+</html>

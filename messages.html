@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Мессеж · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="messages">
+<div class="main">
+  <main class="content">
+    <section class="page-head">
+      <div><h1>Мессеж</h1><p>Ачаа тээвэрлэж буй жолооч болон тусламжийн багтай шууд холбогдох</p></div>
+    </section>
+
+    <section class="card chat" id="chat">
+      <aside class="chat-list">
+        <div class="chat-list-head">
+          <label class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            <input type="search" id="convo-search" placeholder="Чат хайх…" />
+          </label>
+        </div>
+        <div class="chat-scroll" id="convo-list"></div>
+      </aside>
+      <div class="thread" id="thread"></div>
+    </section>
+    <input type="file" id="file-input" hidden />
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+  // Conversations are stored on the server (/api/chats). Every account has a support chat;
+  // a driver chat opens when a driver takes one of your orders.
+  const { esc, icons } = App;
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, '0');
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  let convos = [];
+  const state = { active: null, q: '' };
+
+  const ico = {
+    headset: '<svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>',
+    chats: '<svg viewBox="0 0 24 24"><path d="M14 9a2 2 0 0 1-2 2H6l-3 3V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2z"/><path d="M18 9h1a2 2 0 0 1 2 2v9l-3-3h-6a2 2 0 0 1-2-2v-1"/></svg>',
+    phone: '<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+    more: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>',
+    back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
+    send: '<svg viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-6z"/><path d="M12 14l8-10"/></svg>',
+    clip: '<svg viewBox="0 0 24 24"><path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    bellOff: '<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 9.5-4.9M18 8c0 7 3 8 3 8H8"/><path d="M10 20a2 2 0 0 0 4 0M3 3l18 18"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  };
+  // own support chat vs. (admin only) a user's support request shown as an inbox item
+  const isSupport = c => c.kind === 'support' && !c.inbox;
+  // messages are stored from the chat owner's side; in an inbox item the admin is the "in" side
+  const mine = (c, m) => (c.inbox ? m.from === 'in' : m.from === 'out');
+  const shortTime = at => at.slice(0, 10) === todayStr ? at.slice(11) : at.slice(5, 10).replace('-', '.');
+  const avatar = c => `<span class="convo-avatar${isSupport(c) ? ' support' : ''}">${isSupport(c) ? ico.headset : esc(App.initials(c.name))}${c.online ? '<i class="online"></i>' : ''}</span>`;
+
+  function updateBadge() { App.setMessagesBadge(convos.reduce((s, c) => s + (c.muted ? 0 : c.unread || 0), 0)); }
+  function replace(chat) { convos = convos.map(c => (c.id === chat.id ? chat : c)); }
+  async function post(action, body) {
+    try { const d = await App.api('/api/chats/' + action, body); replace(d.chat); updateBadge(); return d.chat; }
+    catch (e) { App.toast(e.message, 'error'); return null; }
+  }
+
+  function convoItem(c) {
+    const last = (c.messages || [])[c.messages.length - 1];
+    const preview = last ? (mine(c, last) ? 'Та: ' : '') + last.text : 'Мессеж алга';
+    return `
+      <button class="convo${c.id === state.active ? ' active' : ''}${c.unread ? ' unread' : ''}" data-id="${esc(c.id)}">
+        ${avatar(c)}
+        <span class="convo-body">
+          <span class="convo-top"><b>${esc(c.name)}</b>${last ? `<time>${shortTime(last.at)}</time>` : ''}</span>
+          <span class="convo-bottom"><span>${esc(preview)}</span>${c.muted ? ico.bellOff : ''}${c.unread ? `<em class="count">${c.unread}</em>` : ''}</span>
+          ${c.orderNo ? `<span class="convo-ref">№ ${esc(c.orderNo)}</span>` : ''}
+        </span>
+      </button>`;
+  }
+
+  function renderList() {
+    const q = state.q.trim().toLowerCase();
+    const match = c => !q || [c.name, c.orderNo, c.orderTitle].some(v => String(v || '').toLowerCase().includes(q));
+    const support = convos.filter(c => isSupport(c) && match(c));
+    const inbox = convos.filter(c => c.inbox && match(c));
+    const others = convos.filter(c => c.kind === 'driver' && match(c));
+    $('convo-list').innerHTML = `
+      ${support.map(convoItem).join('')}
+      ${inbox.length ? `<div class="chat-section">Хэрэглэгчдийн хүсэлт</div>${inbox.map(convoItem).join('')}` : ''}
+      <div class="chat-section">Миний ачааны чатууд</div>
+      ${others.length ? others.map(convoItem).join('') : `
+        <div class="chat-empty-mini"><div class="empty-ico">${ico.chats}</div>
+          <b>${q ? 'Илэрц олдсонгүй' : 'Одоогоор чат алга'}</b>
+          <p>${q ? 'Өөр үгээр хайж үзээрэй.' : 'Жолооч таны захиалгыг авмагц чат энд автоматаар нээгдэнэ.'}</p>
+          ${q ? '' : '<a href="new-order.html" class="btn btn-secondary" style="margin-top:12px;height:36px">Шинэ ачаа бүртгэх</a>'}</div>`}`;
+  }
+
+  function renderThread() {
+    const c = convos.find(x => x.id === state.active);
+    $('chat').classList.toggle('open', !!c);
+    if (!c) {
+      $('thread').innerHTML = `<div class="thread-empty"><div class="empty-ico">${ico.chats}</div><h3>Чат сонгоно уу</h3>
+        <p>Зүүн талын жагсаалтаас чат сонгоод жолооч эсвэл тусламжийн багтай холбогдоорой.</p></div>`;
+      return;
+    }
+    let lastDay = '';
+    const msgs = (c.messages || []).map(m => {
+      const d = m.at.slice(0, 10);
+      const sep = d !== lastDay ? `<div class="day-sep">${d === todayStr ? 'Өнөөдөр' : d.replace(/-/g, '.')}</div>` : '';
+      lastDay = d;
+      return `${sep}<div class="msg ${mine(c, m) ? 'out' : 'in'}"><p>${esc(m.text)}</p><time>${m.at.slice(11)}</time></div>`;
+    }).join('') || '<div class="day-sep">Мессеж алга — эхний мессежээ бичээрэй</div>';
+
+    $('thread').innerHTML = `
+      <header class="thread-head">
+        <button class="icon-btn back" id="back-btn" aria-label="Буцах">${ico.back}</button>
+        ${avatar(c)}
+        <div class="who"><b>${esc(c.name)}</b><small>${c.online ? 'Онлайн' : 'Офлайн'} · ${esc(c.sub)}${c.muted ? ' · Дуу хаасан' : ''}</small></div>
+        <div class="actions">
+          <button class="icon-btn" id="call-btn" aria-label="Залгах" title="Залгах">${ico.phone}</button>
+          <div class="menu-wrap">
+            <button class="icon-btn" id="more-btn" aria-label="Бусад" aria-haspopup="true" aria-expanded="false">${ico.more}</button>
+            <div class="dropdown card" id="more-menu" hidden>
+              ${c.orderNo ? `<a href="orders.html?open=${encodeURIComponent(c.orderNo)}">${icons.box}Захиалга харах</a>` : `<a href="help.html#faq">${icons.help}Түгээмэл асуулт</a>`}
+              ${c.inbox ? '' : `<button id="mute-btn">${ico.bellOff}${c.muted ? 'Дуу нээх' : 'Дуу хаах'}</button>
+              <button id="clear-btn" class="danger">${ico.trash}Чат цэвэрлэх</button>`}
+            </div>
+          </div>
+        </div>
+      </header>
+      ${c.orderNo ? `<div class="thread-order">${icons.box}<span>Захиалга <b>№ ${esc(c.orderNo)}</b> · ${esc(c.orderTitle)}</span><a href="orders.html?open=${encodeURIComponent(c.orderNo)}">Харах ${ico.arrow}</a></div>` : ''}
+      <div class="messages" id="messages">${msgs}</div>
+      <form class="composer" id="composer">
+        <button type="button" class="icon-btn" id="attach-btn" aria-label="Файл хавсаргах" title="Файл хавсаргах">${ico.clip}</button>
+        <textarea id="msg-input" rows="1" placeholder="Мессеж бичих…"></textarea>
+        <button type="submit" class="btn btn-primary send" id="send-btn" aria-label="Илгээх" disabled>${ico.send}</button>
+      </form>`;
+
+    const box = $('messages');
+    box.scrollTop = box.scrollHeight;
+    const input = $('msg-input');
+    input.addEventListener('input', () => {
+      $('send-btn').disabled = !input.value.trim();
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('composer').requestSubmit(); } });
+    $('composer').addEventListener('submit', e => { e.preventDefault(); const t = input.value.trim(); if (t) send(c, t); });
+    $('back-btn').addEventListener('click', () => { state.active = null; history.replaceState(null, '', 'messages.html'); render(); });
+    $('attach-btn').addEventListener('click', () => $('file-input').click());
+    $('call-btn').addEventListener('click', () => {
+      if (!c.phone) { App.toast('Утасны дугаар бүртгэгдээгүй байна', 'error'); return; }
+      const num = c.phone.replace(/(\d{4})(\d{4})/, '$1-$2');
+      App.modal({ title: 'Залгах', html: `
+        <div style="text-align:center;padding:8px 0 4px">
+          <b style="font-size:17px;display:block">${esc(c.name)}</b>
+          <p class="hint" style="font-size:13px;margin:4px 0 16px">${esc(c.sub)}</p>
+          <div style="font-size:26px;font-weight:800;letter-spacing:.02em">${esc(num)}</div>
+          <div class="modal-actions" style="justify-content:center;margin-top:20px">
+            <button class="btn btn-secondary" id="copy-num">Дугаар хуулах</button>
+            <a class="btn btn-primary" href="tel:${esc(c.phone)}">${ico.phone}Залгах</a>
+          </div>
+        </div>` }).$('#copy-num').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(c.phone); App.toast('Дугаар хуулагдлаа'); } catch { App.toast(num); }
+      });
+    });
+    const menu = $('more-menu');
+    $('more-btn').addEventListener('click', e => { e.stopPropagation(); menu.hidden = !menu.hidden; $('more-btn').setAttribute('aria-expanded', !menu.hidden); });
+    if (!c.inbox) $('mute-btn').addEventListener('click', async () => {
+      const ch = await post('mute', { id: c.id, muted: !c.muted });
+      if (ch) { render(); App.toast(ch.muted ? 'Мэдэгдлийн дуу хаагдлаа' : 'Мэдэгдлийн дуу нээгдлээ'); }
+    });
+    if (!c.inbox) $('clear-btn').addEventListener('click', async e => {
+      const b = e.currentTarget;
+      if (b.dataset.confirm !== '1') { e.stopPropagation(); b.dataset.confirm = '1'; b.lastChild.textContent = 'Дахин дарж баталгаажуулах'; return; }
+      if (await post('clear', { id: c.id })) { render(); App.toast('Чат цэвэрлэгдлээ'); }
+    });
+    if (window.matchMedia('(min-width: 768px)').matches) input.focus();
+  }
+
+  async function send(c, text) {
+    $('send-btn').disabled = true;
+    if (await post('send', { id: c.id, text })) render();
+  }
+
+  function render() { renderList(); renderThread(); }
+
+  async function openChat(id) {
+    state.active = id;
+    history.replaceState(null, '', 'messages.html#' + id);
+    const c = convos.find(x => x.id === id);
+    render();
+    if (c && c.unread) { await post('read', { id }); renderList(); }
+  }
+
+  $('file-input').addEventListener('change', e => {
+    const f = e.target.files[0];
+    const c = convos.find(x => x.id === state.active);
+    if (!f || !c) return;
+    if (f.size > 10 * 1024 * 1024) { App.toast('Файл 10MB-аас ихгүй байна', 'error'); e.target.value = ''; return; }
+    const size = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' KB';
+    send(c, `📎 ${f.name} (${size})`);
+    e.target.value = '';
+  });
+  document.addEventListener('click', () => { const m = $('more-menu'); if (m) m.hidden = true; });
+  $('convo-list').addEventListener('click', e => { const b = e.target.closest('.convo'); if (b) openChat(b.dataset.id); });
+  $('convo-search').addEventListener('input', e => { state.q = e.target.value; renderList(); });
+
+  Auth.ready.then(async u => {
+    if (!u) return;
+    try { convos = (await App.api('/api/chats')).chats || []; } catch (e) { App.toast(e.message, 'error'); }
+    updateBadge();
+    // messages.html#support or #<chat id> opens a conversation directly
+    const h = location.hash.slice(1);
+    const target = h === 'support' ? convos.find(isSupport) : convos.find(c => c.id === h);
+    if (target) openChat(target.id); else render();
+  });
+</script>
+</body>
+</html>

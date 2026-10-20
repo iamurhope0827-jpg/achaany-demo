@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="index">
+<div class="main">
+  <main class="content">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="card welcome">
+        <span class="eyebrow"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg><span id="eyebrow-date"></span></span>
+        <h1>Өдрийн мэнд! Өнөөдөр юу <em>илгээх</em> вэ?</h1>
+        <p>Шинэ ачаагаа бүртгээд жолоочдоос үнийн санал аваарай. Бүх захиалгын явц, төлбөр, мэдэгдэл энд нэг дор.</p>
+        <div class="actions">
+          <a href="new-order.html" class="btn btn-primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Шинэ ачаа</a>
+          <a href="orders.html?status=active" class="btn btn-secondary"><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/></svg>Ачаа хянах</a>
+        </div>
+      </div>
+
+      <div class="balance">
+        <div class="balance-top"><span>Миний данс</span><span class="tag-light" id="plan-tag">Багц аваагүй</span></div>
+        <div class="amount" id="balance">0₮</div>
+        <div class="sub">Ашиглах боломжтой: <b id="balance-sub">0₮</b></div>
+        <div class="balance-actions">
+          <button id="topup-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Нэмэх</button>
+          <a href="wallet.html#transactions" class="balance-link"><svg viewBox="0 0 24 24"><path d="M3 12h18M15 6l6 6-6 6"/></svg>Гүйлгээ</a>
+          <a href="wallet.html#invoices" class="balance-link"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Баримт</a>
+        </div>
+        <div class="autopay">
+          <span>Ачаа хүргэгдмэгц жолоочид автоматаар төлөх</span>
+          <button class="switch" id="autopay" role="switch" aria-checked="true" aria-label="Автомат төлөлт"></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPIs -->
+    <section class="kpis">
+      <a href="orders.html?status=active" class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">Идэвхтэй ачаа</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg></span></div>
+        <div class="kpi-value" id="k-active">0</div><span class="kpi-note" id="k-active-note"></span>
+      </a>
+      <a href="orders.html" class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">Нийт захиалга</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span></div>
+        <div class="kpi-value" id="k-total">0</div><span class="kpi-note" id="k-total-note"></span>
+      </a>
+      <a href="orders.html?status=active" class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">Ирсэн санал</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M9 10h6"/></svg></span></div>
+        <div class="kpi-value" id="k-offers">0</div><span class="kpi-note">жолоочдын үнийн санал</span>
+      </a>
+      <a href="wallet.html#transactions" class="card kpi">
+        <div class="kpi-top"><span class="kpi-label">Нийт зарцуулалт</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/></svg></span></div>
+        <div class="kpi-value" id="k-spent">0₮</div><span class="kpi-note">хүргэгдсэн ачаагаар</span>
+      </a>
+    </section>
+
+    <!-- Analytics -->
+    <section class="analytics">
+      <div class="card card-pad">
+        <div class="card-head">
+          <div><h2>Долоо хоногийн идэвх</h2><p>Өдөр бүр бүртгэсэн ачааны тоо</p></div>
+          <span class="legend-chip"><i></i>Бүртгэсэн ачаа</span>
+        </div>
+        <div class="chart" id="chart"></div>
+        <div class="chart-foot">
+          <div><b id="sum-total">0</b><span>7 хоногт нийт</span></div>
+          <div><b id="sum-receivers">0</b><span>Хүлээн авагч</span></div>
+          <a href="orders.html" class="btn btn-ghost">Бүх захиалга <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </div>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-head"><div><h2>Өнөөдрийн төлөв</h2><p id="today-sub"></p></div></div>
+        <div class="status-big"><b id="st-active">0</b><span>идэвхтэй ачаа</span></div>
+        <div class="stack" id="stack"></div>
+        <ul class="status-list">
+          <li><i style="background:var(--storm)"></i>Замдаа яваа<b id="st-transit">0</b><small id="st-transit-p">0%</small></li>
+          <li><i style="background:var(--sunset)"></i>Санал хүлээж буй<b id="st-waiting">0</b><small id="st-waiting-p">0%</small></li>
+          <li><i style="background:var(--mist)"></i>Хаагдсан<b id="st-closed">0</b><small id="st-closed-p">0%</small></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Recent shipments -->
+    <section class="card card-pad">
+      <div class="card-head">
+        <div><h2>Сүүлийн ачаанууд</h2><p id="recent-sub">Таны хамгийн сүүлд бүртгэсэн ачаанууд</p></div>
+        <div style="display:flex;gap:8px">
+          <div class="menu-wrap">
+            <button class="btn btn-secondary" id="filter-btn" style="height:36px" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span id="filter-label">Шүүх</span></button>
+            <div class="dropdown card" id="filter-menu" hidden>
+              <button data-f="all" class="on">Бүгд</button>
+              <button data-f="active">Идэвхтэй</button>
+              <button data-f="done">Хүргэгдсэн</button>
+              <button data-f="cancelled">Цуцлагдсан</button>
+            </div>
+          </div>
+          <a href="orders.html" class="btn btn-ghost" style="height:36px">Бүгдийг харах</a>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Дугаар</th><th>Чиглэл</th><th>Огноо</th><th>Төлөв</th><th class="price">Үнэ</th></tr></thead>
+          <tbody id="shipments"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Guides + Activity -->
+    <section class="bottom">
+      <div class="card card-pad">
+        <div class="card-head"><div><h2>Заавар</h2><p>Системийг хурдан эзэмших алхам алхмаар заавар</p></div><a href="help.html#guides" class="btn btn-ghost">Бүгд</a></div>
+        <a href="help.html#guide-1" class="guide">
+          <span class="guide-thumb" style="background:var(--storm)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
+          <div><h3>Анхны ачаагаа бүртгэх</h3><p>Хаяг, жин, хэмжээгээ хэрхэн оруулах вэ</p></div>
+          <span class="len">4 алхам</span>
+        </a>
+        <a href="help.html#guide-2" class="guide">
+          <span class="guide-thumb" style="background:var(--sage)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
+          <div><h3>Үнийн санал харьцуулах</h3><p>Жолоочийн үнэлгээ, үнийг хамт харах</p></div>
+          <span class="len">3 алхам</span>
+        </a>
+        <a href="help.html#guide-3" class="guide">
+          <span class="guide-thumb" style="background:var(--mist);color:var(--ink)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
+          <div><h3>Дансаа цэнэглэх</h3><p>Төлбөрийн аргууд ба автомат төлөлт</p></div>
+          <span class="len">3 алхам</span>
+        </a>
+        <a href="help.html#guide-4" class="guide">
+          <span class="guide-thumb" style="background:var(--beige);color:var(--storm)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
+          <div><h3>Ачаагаа хянах</h3><p>Захиалгын төлөв, түүхийг харах</p></div>
+          <span class="len">3 алхам</span>
+        </a>
+      </div>
+
+      <div class="card card-pad">
+        <div class="card-head"><div><h2>Сүүлийн үйл явдал</h2><p>Таны бүртгэлийн шинэчлэлүүд</p></div><button class="btn btn-ghost" id="history-btn">Түүх</button></div>
+        <ul class="timeline" id="timeline"></ul>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>© <span id="year"></span> Ачааны төв</span>
+      <nav><a href="terms.html#privacy">Нууцлал</a><a href="terms.html#terms">Үйлчилгээний нөхцөл</a><a href="help.html#contact">Холбоо барих</a></nav>
+    </footer>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const { esc, money, STATUS } = App;
+  const days = ['Ня', 'Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя'];
+  const now = new Date();
+  const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let orders = [];
+  let filter = 'all';
+
+  $('eyebrow-date').textContent = `${days[now.getDay()]} гараг · ${now.getMonth() + 1}-р сарын ${now.getDate()}`;
+  $('today-sub').textContent = `${now.getMonth() + 1}-р сарын ${now.getDate()}-ны байдлаар`;
+  $('year').textContent = now.getFullYear();
+
+  // ----- wallet card -----
+  function renderUser(u) {
+    $('balance').textContent = money(u.wallet);
+    $('balance-sub').textContent = money(u.wallet);
+    $('plan-tag').textContent = u.plan ? `${u.plan} багц` : 'Багц аваагүй';
+    const on = u.settings ? u.settings.autopay : true;
+    $('autopay').classList.toggle('off', !on);
+    $('autopay').setAttribute('aria-checked', on);
+  }
+  $('topup-btn').addEventListener('click', () => App.topup(u => { renderUser(u); loadTimeline(); }));
+  $('autopay').addEventListener('click', async () => {
+    const on = $('autopay').getAttribute('aria-checked') !== 'true';
+    try {
+      const d = await App.api('/api/settings', { autopay: on });
+      Auth.setUser(d.user); renderUser(d.user);
+      App.toast(on ? 'Автомат төлөлт асаалаа' : 'Автомат төлөлт унтраалаа');
+    } catch (e) { App.toast(e.message, 'error'); }
+  });
+
+  // ----- stats -----
+  function renderStats() {
+    const count = s => orders.filter(o => o.status === s).length;
+    const active = count('waiting') + count('transit');
+    const todayStr = ymd(now);
+    const createdToday = orders.filter(o => (o.date || '').startsWith(todayStr)).length;
+    $('k-active').textContent = active;
+    $('k-active-note').textContent = `${count('transit')} замдаа яваа`;
+    $('k-total').textContent = orders.length;
+    $('k-total-note').textContent = createdToday ? `өнөөдөр +${createdToday}` : 'өнөөдөр шинэ алга';
+    $('k-offers').textContent = orders.reduce((s, o) => s + (o.offers || 0), 0);
+    $('k-spent').textContent = money(orders.filter(o => o.status === 'done').reduce((s, o) => s + (o.price || 0), 0));
+
+    const transit = count('transit'), waiting = count('waiting'), closed = count('done') + count('cancelled');
+    const total = transit + waiting + closed;
+    const pct = n => (total ? Math.round((n / total) * 100) : 0) + '%';
+    $('st-active').textContent = active;
+    $('st-transit').textContent = transit; $('st-transit-p').textContent = pct(transit);
+    $('st-waiting').textContent = waiting; $('st-waiting-p').textContent = pct(waiting);
+    $('st-closed').textContent = closed; $('st-closed-p').textContent = pct(closed);
+    $('stack').innerHTML = total
+      ? [[transit, 'var(--storm)'], [waiting, 'var(--sunset)'], [closed, 'var(--mist)']].filter(x => x[0]).map(([n, c]) => `<span style="flex:${n};background:${c}"></span>`).join('')
+      : '<span style="flex:1;background:rgba(41,44,42,.08)"></span>';
+
+    // last 7 days
+    const series = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(now.getDate() - i);
+      series.push({ d, n: orders.filter(o => (o.date || '').startsWith(ymd(d))).length });
+    }
+    drawChart(series);
+    $('sum-total').textContent = series.reduce((s, x) => s + x.n, 0);
+    $('sum-receivers').textContent = new Set(orders.map(o => o.to)).size;
+  }
+
+  function drawChart(series) {
+    const values = series.map(x => x.n);
+    const W = 680, H = 240, padL = 30, padR = 14, padT = 14, padB = 30;
+    const max = Math.max(4, Math.ceil(Math.max(...values) / 4) * 4);
+    const x = i => padL + (i * (W - padL - padR)) / (values.length - 1);
+    const y = v => padT + (1 - v / max) * (H - padT - padB);
+    const pts = values.map((v, i) => [x(i), y(v)]);
+    let line = `M ${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      line += ` C ${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6}, ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6}, ${p2[0]} ${p2[1]}`;
+    }
+    const area = `${line} L ${x(values.length - 1)} ${H - padB} L ${x(0)} ${H - padB} Z`;
+    let grid = '';
+    for (let g = 0; g <= max; g += max / 4) {
+      grid += `<line class="gridline" x1="${padL}" x2="${W - padR}" y1="${y(g)}" y2="${y(g)}"/><text x="${padL - 10}" y="${y(g) + 4}" text-anchor="end">${g}</text>`;
+    }
+    series.forEach((s, i) => {
+      grid += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle"${i === 6 ? ' style="fill:#292c2a;font-weight:700"' : ''}>${days[s.d.getDay()]} ${s.d.getDate()}</text>`;
+    });
+    const dots = pts.map((p, i) => i === 6
+      ? `<circle cx="${p[0]}" cy="${p[1]}" r="10" fill="#c46b48" opacity=".2"/><circle cx="${p[0]}" cy="${p[1]}" r="5" fill="#c46b48" stroke="#ffffff" stroke-width="2"><title>${values[i]}</title></circle>`
+      : `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#ffffff" stroke="#292c2a" stroke-width="2"><title>${values[i]}</title></circle>`).join('');
+    $('chart').innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c46b48" stop-opacity=".25"/><stop offset="1" stop-color="#c46b48" stop-opacity="0"/></linearGradient></defs>
+        ${grid}<path d="${area}" fill="url(#area)" stroke="none"/><path d="${line}" fill="none" stroke="#292c2a" stroke-width="2.5"/>${dots}
+      </svg>`;
+  }
+
+  // ----- recent table + filter -----
+  const arrow = '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  function renderTable() {
+    const list = orders.filter(o => filter === 'all' || STATUS[o.status].group === filter).slice(0, 5);
+    $('shipments').innerHTML = list.length ? list.map(o => `
+      <tr class="row-link" data-no="${esc(o.no)}" tabindex="0">
+        <td class="id">#${esc(o.no)}</td>
+        <td class="route"><span>${esc(o.from)} ${arrow} ${esc(o.to)}</span></td>
+        <td class="muted">${esc((o.date || '').slice(5, 10).replace('-', '.'))}</td>
+        <td><span class="chip ${STATUS[o.status].chip}">${STATUS[o.status].label}</span></td>
+        <td class="price">${money(o.price)}</td>
+      </tr>`).join('') : `
+      <tr><td colspan="5"><div class="empty-inline">
+        <b>${orders.length ? 'Энэ шүүлтүүрт ачаа алга' : 'Одоогоор ачаа бүртгээгүй байна'}</b>
+        ${orders.length ? 'Өөр шүүлтүүр сонгоно уу.' : 'Анхны ачаагаа бүртгээд жолоочдоос санал аваарай.'}
+        ${orders.length ? '' : '<br><a href="new-order.html" class="btn btn-primary">Шинэ ачаа бүртгэх</a>'}
+      </div></td></tr>`;
+  }
+  const openRow = tr => { if (tr) location.href = 'orders.html?open=' + encodeURIComponent(tr.dataset.no); };
+  $('shipments').addEventListener('click', e => openRow(e.target.closest('tr[data-no]')));
+  $('shipments').addEventListener('keydown', e => { if (e.key === 'Enter') openRow(e.target.closest('tr[data-no]')); });
+
+  const menu = $('filter-menu');
+  $('filter-btn').addEventListener('click', e => { e.stopPropagation(); menu.hidden = !menu.hidden; $('filter-btn').setAttribute('aria-expanded', !menu.hidden); });
+  document.addEventListener('click', () => { menu.hidden = true; });
+  menu.addEventListener('click', e => {
+    const b = e.target.closest('[data-f]');
+    if (!b) return;
+    filter = b.dataset.f;
+    menu.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === b));
+    $('filter-label').textContent = filter === 'all' ? 'Шүүх' : b.textContent;
+    renderTable();
+  });
+
+  // ----- activity from notifications -----
+  async function loadTimeline() {
+    const notes = await App.loadNotifications();
+    $('timeline').innerHTML = notes.length ? notes.slice(0, 4).map(n => `
+      <li class="${n.kind === 'alert' ? 'alert' : n.kind === 'ok' ? 'ok' : ''}">
+        <h4>${esc(n.title)}</h4><p>${esc(n.text)}</p><time>${esc(n.at)}</time>
+      </li>`).join('') : '<li><h4>Үйл явдал алга</h4><p>Шинэ ачаа бүртгэхэд энд харагдана.</p></li>';
+  }
+  $('history-btn').addEventListener('click', e => { e.stopPropagation(); App.openNotifications(); });
+
+  Auth.ready.then(async u => {
+    if (!u) return;
+    renderUser(u);
+    loadTimeline();
+    try { orders = (await App.api('/api/orders')).orders || []; } catch (e) { App.toast(e.message, 'error'); }
+    renderStats();
+    renderTable();
+  });
+</script>
+</body>
+</html>

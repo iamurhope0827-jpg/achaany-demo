@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Тохиргоо · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="settings">
+<div class="main">
+  <main class="content">
+    <section class="page-head">
+      <div><h1>Тохиргоо</h1><p>Бүртгэл, аюулгүй байдал болон мэдэгдлийн тохиргоо</p></div>
+    </section>
+
+    <div class="settings-grid">
+      <section class="card card-pad">
+        <div class="card-head"><div><h2>Нууц үг солих</h2><p>Солигдсоны дараа бусад төхөөрөмжөөс автоматаар гарна</p></div></div>
+        <form class="auth-form" id="pw-form" novalidate>
+          <div class="form-alert error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+          <div class="field" data-field="current">
+            <label for="current">Одоогийн нууц үг</label>
+            <div class="input"><input type="password" id="current" autocomplete="current-password" /></div>
+            <span class="err"></span>
+          </div>
+          <div class="field" data-field="next">
+            <label for="next">Шинэ нууц үг</label>
+            <div class="input"><input type="password" id="next" autocomplete="new-password" placeholder="Хамгийн багадаа 8 тэмдэгт" /></div>
+            <div class="strength" id="strength" data-score="0"><i></i><i></i><i></i><i></i></div>
+            <span class="err"></span>
+          </div>
+          <div class="field" data-field="confirm">
+            <label for="confirm">Шинэ нууц үг давтах</label>
+            <div class="input"><input type="password" id="confirm" autocomplete="new-password" /></div>
+            <span class="err"></span>
+          </div>
+          <button type="submit" class="btn btn-primary" id="pw-btn">Нууц үг солих</button>
+        </form>
+      </section>
+
+      <div style="display:grid;gap:24px">
+        <section class="card card-pad">
+          <div class="card-head"><div><h2>Мэдэгдэл ба төлбөр</h2></div></div>
+          <div class="setting-row">
+            <div><b>Имэйлээр мэдэгдэл авах</b><small>Захиалгын төлөв өөрчлөгдөхөд имэйл илгээнэ</small></div>
+            <button class="toggle" role="switch" data-setting="notifyEmail" aria-checked="true" aria-label="Имэйл мэдэгдэл"></button>
+          </div>
+          <div class="setting-row">
+            <div><b>SMS мэдэгдэл</b><small>Яаралтай мэдэгдлийг утсанд илгээнэ</small></div>
+            <button class="toggle" role="switch" data-setting="notifySms" aria-checked="false" aria-label="SMS мэдэгдэл"></button>
+          </div>
+          <div class="setting-row">
+            <div><b>Автомат төлөлт</b><small>Ачаа хүргэгдмэгц жолоочид хэтэвчнээс төлнө</small></div>
+            <button class="toggle" role="switch" data-setting="autopay" aria-checked="true" aria-label="Автомат төлөлт"></button>
+          </div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head"><div><h2>Бүртгэл</h2></div></div>
+          <div class="setting-row">
+            <div><b id="acc-name">—</b><small id="acc-email"></small></div>
+            <a href="profile.html" class="btn btn-secondary">Профайл засах</a>
+          </div>
+          <div class="setting-row">
+            <div><b>Энэ төхөөрөмжөөс гарах</b><small>Зөвхөн одоогийн хөтчөөс гарна</small></div>
+            <button class="btn btn-secondary" id="logout-btn">Гарах</button>
+          </div>
+          <div class="setting-row">
+            <div><b>Бүх төхөөрөмжөөс гарах</b><small>Бүх нэвтрэлтийг цуцална</small></div>
+            <button class="btn btn-danger" id="logout-all">Бүгдээс гарах</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="app.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const form = $('pw-form');
+
+  function renderSettings(u) {
+    $('acc-name').textContent = u.name;
+    $('acc-email').textContent = u.email + (u.username ? ` · ${u.username}` : '');
+    document.querySelectorAll('[data-setting]').forEach(t => t.setAttribute('aria-checked', !!(u.settings || {})[t.dataset.setting]));
+  }
+
+  document.querySelectorAll('[data-setting]').forEach(t => t.addEventListener('click', async () => {
+    const on = t.getAttribute('aria-checked') !== 'true';
+    t.setAttribute('aria-checked', on);
+    try {
+      const d = await App.api('/api/settings', { [t.dataset.setting]: on });
+      Auth.setUser(d.user);
+      App.toast('Тохиргоо хадгалагдлаа');
+    } catch (e) { t.setAttribute('aria-checked', !on); App.toast(e.message, 'error'); }
+  }));
+
+  $('next').addEventListener('input', () => {
+    const p = $('next').value;
+    $('strength').dataset.score = p ? Math.max(Auth.passwordScore(p), 1) : 0;
+  });
+  form.addEventListener('input', e => { const f = e.target.closest('[data-field]'); if (f) App.fieldError(form, f.dataset.field, ''); App.formAlert(form, ''); });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const current = $('current').value, next = $('next').value, confirm = $('confirm').value;
+    const errs = {};
+    if (!current) errs.current = 'Одоогийн нууц үгээ оруулна уу.';
+    if (next.length < 8) errs.next = 'Хамгийн багадаа 8 тэмдэгт.';
+    else if (Auth.passwordScore(next) < 2) errs.next = 'Нууц үг хэт энгийн байна.';
+    else if (next === current) errs.next = 'Шинэ нууц үг өмнөхөөсөө өөр байх ёстой.';
+    if (confirm !== next) errs.confirm = 'Нууц үг таарахгүй байна.';
+    ['current', 'next', 'confirm'].forEach(k => App.fieldError(form, k, errs[k]));
+    if (Object.keys(errs).length) return;
+    $('pw-btn').disabled = true;
+    try {
+      await App.api('/api/password', { current, next });
+      form.reset(); $('strength').dataset.score = 0;
+      App.toast('Нууц үг амжилттай солигдлоо');
+      App.loadNotifications();
+    } catch (err) {
+      if (!(err.field && App.fieldError(form, err.field, err.message))) App.formAlert(form, err.message);
+    } finally { $('pw-btn').disabled = false; }
+  });
+
+  $('logout-btn').addEventListener('click', () => Auth.logout());
+  $('logout-all').addEventListener('click', async () => {
+    const b = $('logout-all');
+    if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Дахин дарж баталгаажуулна уу'; return; }
+    try { await App.api('/api/logout-all', {}); } catch { }
+    location.href = 'login.html';
+  });
+
+  Auth.ready.then(u => { if (u) renderSettings(u); });
+</script>
+</body>
+</html>

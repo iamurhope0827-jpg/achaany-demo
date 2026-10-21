@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Мессеж · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -90,17 +91,19 @@
     const q = state.q.trim().toLowerCase();
     const match = c => !q || [c.name, c.orderNo, c.orderTitle].some(v => String(v || '').toLowerCase().includes(q));
     const support = convos.filter(c => isSupport(c) && match(c));
-    const inbox = convos.filter(c => c.inbox && match(c));
-    const others = convos.filter(c => c.kind === 'driver' && match(c));
+    const inbox = convos.filter(c => c.inbox && c.kind === 'support' && match(c));
+    // a driver's own chats are with the customers of the orders they carry (shown as inbox items)
+    const isDriver = (Auth.current() || {}).role === 'driver';
+    const others = convos.filter(c => c.kind === 'driver' && (isDriver ? c.inbox : !c.inbox) && match(c));
     $('convo-list').innerHTML = `
       ${support.map(convoItem).join('')}
       ${inbox.length ? `<div class="chat-section">Хэрэглэгчдийн хүсэлт</div>${inbox.map(convoItem).join('')}` : ''}
-      <div class="chat-section">Миний ачааны чатууд</div>
+      <div class="chat-section">${isDriver ? 'Захиалагчтай чат' : 'Миний ачааны чатууд'}</div>
       ${others.length ? others.map(convoItem).join('') : `
         <div class="chat-empty-mini"><div class="empty-ico">${ico.chats}</div>
           <b>${q ? 'Илэрц олдсонгүй' : 'Одоогоор чат алга'}</b>
-          <p>${q ? 'Өөр үгээр хайж үзээрэй.' : 'Жолооч таны захиалгыг авмагц чат энд автоматаар нээгдэнэ.'}</p>
-          ${q ? '' : '<a href="new-order.html" class="btn btn-secondary" style="margin-top:12px;height:36px">Шинэ ачаа бүртгэх</a>'}</div>`}`;
+          <p>${q ? 'Өөр үгээр хайж үзээрэй.' : isDriver ? 'Захиалга авмагц захиалагчтай чат энд нээгдэнэ.' : 'Жолооч таны захиалгыг авмагц чат энд автоматаар нээгдэнэ.'}</p>
+          ${q ? '' : isDriver ? '<a href="driver.html" class="btn btn-secondary" style="margin-top:12px;height:36px">Самбар руу</a>' : '<a href="new-order.html" class="btn btn-secondary" style="margin-top:12px;height:36px">Шинэ ачаа бүртгэх</a>'}</div>`}`;
   }
 
   function renderThread() {
@@ -129,7 +132,7 @@
           <div class="menu-wrap">
             <button class="icon-btn" id="more-btn" aria-label="Бусад" aria-haspopup="true" aria-expanded="false">${ico.more}</button>
             <div class="dropdown card" id="more-menu" hidden>
-              ${c.orderNo ? `<a href="orders.html?open=${encodeURIComponent(c.orderNo)}">${icons.box}Захиалга харах</a>` : `<a href="help.html#faq">${icons.help}Түгээмэл асуулт</a>`}
+              ${c.orderNo && c.inbox ? `<a href="driver.html">${icons.box}Самбар руу</a>` : c.orderNo ? `<a href="orders.html?open=${encodeURIComponent(c.orderNo)}">${icons.box}Захиалга харах</a>` : `<a href="help.html#faq">${icons.help}Түгээмэл асуулт</a>`}
               ${c.inbox ? '' : `<button id="mute-btn">${ico.bellOff}${c.muted ? 'Дуу нээх' : 'Дуу хаах'}</button>
               <button id="clear-btn" class="danger">${ico.trash}Чат цэвэрлэх</button>`}
             </div>
@@ -221,7 +224,10 @@
     // messages.html#support or #<chat id> opens a conversation directly
     const h = location.hash.slice(1);
     const target = h === 'support' ? convos.find(isSupport) : convos.find(c => c.id === h);
-    if (target) openChat(target.id); else render();
+    // on a wide screen, open the conversation that most needs attention instead of an empty pane
+    const wide = window.matchMedia('(min-width: 768px)').matches;
+    const first = target || (wide && (convos.find(c => c.unread && !c.muted) || convos.find(isSupport)));
+    if (first) openChat(first.id); else render();
   });
 </script>
 </body>

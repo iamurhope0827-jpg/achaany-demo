@@ -1,5 +1,7 @@
 // Authentication client — talks to the account API in server.ps1.
 // Accounts are saved on the server (data/users.json); the sign-in is an HttpOnly cookie.
+try { localStorage.removeItem('at_palette'); } catch { }   // one design (blue) now: drop any palette saved earlier
+
 const Auth = (function () {
   const OFFLINE = 'Сервертэй холбогдож чадсангүй. server.ps1 ажиллаж байгаа эсэхийг шалгана уу.';
   let user = null;
@@ -46,8 +48,9 @@ const Auth = (function () {
       return p.length < 6 ? Math.min(s, 1) : s;
     },
 
-    async register({ name, email, password, type }) {
-      return (user = (await api('/api/register', { name, email, password, type })).user);
+    // a driver sign-up also sends phone and driver: { kind, zone, vehicle }
+    async register({ name, email, password, type, phone, driver }) {
+      return (user = (await api('/api/register', { name, email, password, type, phone, driver })).user);
     },
 
     async login(email, password, remember) {
@@ -68,10 +71,14 @@ const Auth = (function () {
       try { return (await api('/api/exists?email=' + encodeURIComponent(email))).exists; } catch { return false; }
     },
 
-    // Call in <head> of protected pages: hides the page until the session is confirmed
+    // Call in <head> of protected pages: hides the page until the session is confirmed.
+    // Drivers have their own home (driver.html) and skip the customer pages.
     requireLogin() {
       document.documentElement.style.visibility = 'hidden';
       ready.then(u => {
+        const here = location.pathname.split('/').pop() || 'index.html';
+        if (u && u.role === 'driver' && ['index.html', 'orders.html', 'new-order.html', 'promotions.html'].includes(here)) { location.replace('driver.html'); return; }
+        if (u && u.role !== 'driver' && here === 'driver.html') { location.replace('index.html'); return; }
         if (u) { document.documentElement.style.visibility = ''; return; }
         const next = encodeURIComponent(location.pathname.split('/').pop() + location.hash);
         location.replace('login.html?next=' + next);

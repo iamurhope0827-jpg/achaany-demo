@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Шинэ ачаа · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -43,6 +45,10 @@
               <span class="err"></span>
             </div>
           </div>
+          <div class="field" style="margin-top:16px">
+            <label id="size-label">Овор хэмжээ</label>
+            <div class="size-pick" id="size" role="radiogroup" aria-labelledby="size-label"></div>
+          </div>
         </div>
 
         <div>
@@ -60,6 +66,17 @@
             </div>
           </div>
           <div class="field" style="margin-top:16px">
+            <div class="pick-head">
+              <label id="pick-label">Газрын зураг дээр тэмдэглэх</label>
+              <div class="segmented" id="pick-mode" role="group" aria-labelledby="pick-label">
+                <button type="button" class="active" data-k="from" aria-pressed="true">Авах цэг</button>
+                <button type="button" data-k="to" aria-pressed="false">Хүргэх цэг</button>
+              </div>
+            </div>
+            <div class="pick-map" id="pick-map" role="application" aria-label="Ачаа авах, хүргэх цэгээ сонгох газрын зураг"></div>
+            <span class="hint" id="pick-hint">Зураг дээр дарж ачаа авах цэгээ тэмдэглээрэй. Цэгийг чирж засна.</span>
+          </div>
+          <div class="field" style="margin-top:16px">
             <label>Авах өдөр</label>
             <div class="chips" id="date-chips">
               <button type="button" class="chip-btn on" data-date="today">Өнөөдөр</button>
@@ -71,20 +88,13 @@
         </div>
 
         <div>
-          <h2>3. Шаардлага ба үнэ</h2>
+          <h2>3. Шаардлага</h2>
           <div class="field" style="margin-top:14px">
             <label>Тээврийн хэрэгсэл (олныг сонгож болно)</label>
             <div class="chips" id="needs"></div>
           </div>
-          <div class="row-2" style="margin-top:16px">
-            <div class="field" data-field="price">
-              <label for="price">Санал болгох үнэ</label>
-              <div class="input"><input id="price" inputmode="numeric" placeholder="10,000" /><span class="suffix">₮</span></div>
-              <span class="err"></span>
-            </div>
-            <div class="field" style="align-content:end">
-              <label class="check" style="height:48px;align-items:center"><input type="checkbox" id="urgent" />Яаралтай хүргэлт</label>
-            </div>
+          <div class="field" style="margin-top:16px">
+            <label class="check"><input type="checkbox" id="urgent" />Яаралтай хүргэлт</label>
           </div>
           <div class="field" style="margin-top:16px">
             <label for="note">Жолоочид өгөх тэмдэглэл</label>
@@ -96,6 +106,25 @@
       <aside class="card summary-card">
         <h2 style="font-size:16px;font-weight:800">Захиалгын хураангуй</h2>
         <ul class="kv" style="padding:0" id="summary"></ul>
+
+        <!-- the delivery fare: distance × tariff + call fee + weight/size, then the price the customer offers -->
+        <section class="fare" data-field="price" aria-labelledby="fare-title">
+          <header>
+            <h3 id="fare-title">Хүргэлтийн төлбөр</h3>
+            <button type="button" class="fare-toggle" id="fare-toggle" aria-expanded="true" aria-controls="fare-lines">Задаргаа харах<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+          </header>
+          <ul class="fare-lines" id="fare-lines"></ul>
+          <div class="fare-want">
+            <label for="want">Хэрэглэгчийн хүсч буй үнэ</label>
+            <div class="fare-want-input"><input id="want" inputmode="numeric" autocomplete="off" disabled /><span>₮</span></div>
+          </div>
+          <div class="fare-boost" id="fare-boost">
+            <button type="button" class="fare-reset" id="fare-reset" aria-label="Тооцоолсон үнэ рүү буцаах" title="Тооцоолсон үнэ рүү буцаах"><svg viewBox="0 0 24 24"><path d="M14 3l7 7M12.5 4.5l7 7-5 2.5L10 9.5z"/><path d="M10 9.5L4 15c-1.5 1.5-1 4 1 5s3 1 4.5-.5l5-5.5"/><path d="M7 14l3 3"/></svg></button>
+          </div>
+          <span class="err"></span>
+          <p class="hint" id="fare-note">Газрын зураг дээр хоёр цэгээ тэмдэглэхэд үнэ бодогдоно.</p>
+        </section>
+
         <button type="submit" class="btn btn-primary" id="submit" style="height:50px">Захиалга үүсгэх</button>
         <a href="orders.html" class="btn btn-secondary">Болих</a>
         <p class="hint">Захиалга үүсмэгц жолоочид мэдэгдэл очиж, санал илгээж эхэлнэ.</p>
@@ -105,6 +134,8 @@
 </div>
 
 <script src="app.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="map.js"></script>
 <script>
   const { esc, money } = App;
   const $ = id => document.getElementById(id);
@@ -138,12 +169,114 @@
     summary();
   });
 
-  // number formatting
-  $('price').addEventListener('input', () => { const n = $('price').value.replace(/\D/g, ''); $('price').value = n ? Number(n).toLocaleString('en-US') : ''; });
   $('weight').addEventListener('input', () => { $('weight').value = $('weight').value.replace(/[^\d.]/g, ''); });
 
+  // ----- the fare -----
+  // Tariffs come from the server (/api/pricing), which checks the same sum when the order is saved.
+  // The customer's price starts at the system price rounded up, can be raised, never lowered below it.
+  let tariff = null, fare = null, want = 0, size = 'small';
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const km1 = km => Math.round(km * 10) / 10;
+  const roundUp = n => Math.ceil(n / tariff.round) * tariff.round;
+  function computeFare() {
+    if (!tariff || !trip) return null;
+    const km = km1(trip.km), kg = Number($('weight').value) || 0;
+    const weightFee = tariff.weight.find(t => kg <= t.upTo).fee, sizeFee = tariff.size[size].fee;
+    const distance = Math.round(km * tariff.perKm / 100) * 100;
+    return { km, kg, distance, weightFee, sizeFee, system: distance + tariff.call + weightFee + sizeFee };
+  }
+  function renderFare() {
+    const prev = fare;
+    fare = computeFare();
+    const lines = $('fare-lines');
+    $('want').disabled = !fare;
+    $('fare-boost').querySelectorAll('button').forEach(b => { b.disabled = !fare; });
+    $('fare-note').hidden = !!fare;
+    if (!tariff) { lines.innerHTML = ''; return; }
+    const line = (b, small, value, cls = '') => `<li class="${cls}"><span><b>${b}</b><small>${small}</small></span><b>${value}</b></li>`;
+    const extra = fare ? [fare.kg && `${fmt(fare.kg)} кг`, size !== 'small' && tariff.size[size].label.toLowerCase() + ' овор'].filter(Boolean).join(', ') : '';
+    lines.innerHTML = [
+      line('Хүргэлт:', `Тариф 1км=${fmt(tariff.perKm)}₮`, fare ? `${fare.km}км = ${fmt(fare.distance)}₮` : '—'),
+      line('Дуудлага:', 'Хүргэлтийн суурь үнэ', `${fmt(tariff.call)}₮`),
+      line('Жин нэмэгдэл:', extra ? `Ачааны жин, овор хэмжээ · ${esc(extra)}` : 'Ачааны жин, овор хэмжээ', fare ? `${fmt(fare.weightFee + fare.sizeFee)}₮` : '—'),
+      line('Бодогдсон үнэ:', 'Системийн тооцоолсон үнэ', fare ? `${fmt(fare.system)}₮` : '—', 'total'),
+    ].join('');
+    // the price follows the system price; whatever the customer added on top stays on top
+    const added = prev && want ? Math.max(0, want - roundUp(prev.system)) : 0;
+    want = fare ? roundUp(fare.system) + added : 0;
+    if (document.activeElement !== $('want')) showWant();
+  }
+  $('fare-toggle').addEventListener('click', () => {
+    const open = $('fare-toggle').getAttribute('aria-expanded') !== 'true';
+    $('fare-toggle').setAttribute('aria-expanded', open);
+    $('fare-lines').hidden = !open;
+  });
+  $('fare-boost').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || !fare) return;
+    want = b.id === 'fare-reset' ? roundUp(fare.system) : want + Number(b.dataset.add);
+    App.fieldError(form, 'price', '');
+    showWant();
+    summary();
+  });
+  // the box is as wide as its digits, so the ₮ sits right after the amount
+  function showWant(text = want ? fmt(want) : '') { $('want').value = text; $('want').size = Math.max(text.length, 4); }
+  $('want').addEventListener('input', () => { const n = $('want').value.replace(/\D/g, ''); showWant(n ? Number(n).toLocaleString('en-US') : ''); });
+  $('want').addEventListener('change', () => {
+    const n = Number($('want').value.replace(/\D/g, '')) || 0;
+    if (fare && n < fare.system) { App.fieldError(form, 'price', `Тооцоолсон ${fmt(fare.system)}₮-өөс бага үнэ санал болгох боломжгүй.`); want = roundUp(fare.system); }
+    else want = n;
+    showWant();
+    summary();
+  });
+  $('weight').addEventListener('input', () => renderFare());
+  $('size').addEventListener('click', e => {
+    const b = e.target.closest('[data-size]');
+    if (!b) return;
+    size = b.dataset.size;
+    $('size').querySelectorAll('[data-size]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
+    renderFare(); summary();
+  });
+  App.api('/api/pricing').then(d => {
+    tariff = d.fare;
+    $('size').innerHTML = Object.entries(tariff.size).map(([k, s]) => `
+      <button type="button" role="radio" data-size="${k}" class="${k === size ? 'on' : ''}" aria-checked="${k === size}">
+        <b>${esc(s.label)}</b><small>${esc(s.hint)}</small><em>${s.fee ? '+' + fmt(s.fee) + '₮' : 'Нэмэгдэлгүй'}</em>
+      </button>`).join('');
+    $('fare-boost').insertAdjacentHTML('afterbegin', tariff.boosts.map(v => `<button type="button" data-add="${v}">+${fmt(v)}₮</button>`).join(''));
+    renderFare();
+  }).catch(e => App.toast(e.message, 'error'));
+
+  // ----- the map: tap to place the pickup, then the drop-off; a typed district places a first guess -----
+  let trip = null;
+  const picker = OrderMap.picker($('pick-map'), { onChange: ({ from, to, info }) => {
+    trip = info;
+    renderFare();
+    $('pick-hint').textContent = info ? `Зай ≈ ${info.km < 10 ? info.km.toFixed(1) : Math.round(info.km)} км · замд ≈ ${Math.max(1, Math.round(info.min))} мин${info.road ? '' : ' (шулуунаар тооцсон)'}`
+      : from ? 'Одоо хүргэх цэгээ тэмдэглээрэй.' : 'Зураг дээр дарж ачаа авах цэгээ тэмдэглээрэй. Цэгийг чирж засна.';
+    summary();
+  } });
+  function setMode(k) {
+    picker.setActive(k);
+    $('pick-mode').querySelectorAll('button').forEach(b => { b.classList.toggle('active', b.dataset.k === k); b.setAttribute('aria-pressed', b.dataset.k === k); });
+  }
+  $('pick-mode').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) setMode(b.dataset.k); });
+  picker.onPlaced(async (kind, ll) => {
+    picker.manual(kind);
+    if (kind === 'from' && !picker.get().to) setMode('to');
+    // an empty address field gets the street name at the pin
+    const input = $(kind);
+    if (!input.value.trim()) {
+      const addr = await OrderMap.addressAt(ll);
+      if (addr && !input.value.trim()) { input.value = addr; summary(); }
+    }
+  });
+  ['from', 'to'].forEach(k => $(k).addEventListener('change', () => picker.guess(k, $(k).value)));
+
   function data() {
+    const ll = picker.get();
     return {
+      fromLL: ll.from, toLL: ll.to,
       type: 'delivery',
       title: $('title').value.trim(),
       weight: $('weight').value.trim(),
@@ -151,7 +284,7 @@
       to: $('to').value.trim(),
       pickupDate: pickupDate(),
       needs: [...$('needs').querySelectorAll('.on')].map(b => b.dataset.need),
-      price: Number($('price').value.replace(/\D/g, '')) || 0,
+      price: want, km: fare ? fare.km : null, size,
       urgent: $('urgent').checked,
       note: $('note').value.trim(),
     };
@@ -164,10 +297,11 @@
       row('Ачаа', d.title),
       row('Авах', d.from),
       row('Хүргэх', d.to),
+      row('Зай', trip ? `≈ ${trip.km < 10 ? trip.km.toFixed(1) : Math.round(trip.km)} км` : ''),
       row('Авах өдөр', d.pickupDate),
       row('Хэрэгсэл', d.needs.join(', ')),
+      row('Овор', tariff ? tariff.size[size].label : ''),
       row('Яаралтай', d.urgent ? 'Тийм' : ''),
-      `<li><span>Үнэ</span><b style="font-size:18px">${d.price ? money(d.price) : '—'}</b></li>`,
     ].join('');
   }
   form.addEventListener('input', e => {
@@ -184,11 +318,12 @@
     if (d.title.length < 2) errs.title = 'Ачааны нэрээ оруулна уу.';
     if (d.from.length < 3) errs.from = 'Ачаа авах хаягаа оруулна уу.';
     if (d.to.length < 3) errs.to = 'Хүргэх хаягаа оруулна уу.';
-    if (d.price < 1000) errs.price = 'Үнэ хамгийн багадаа 1,000₮.';
+    if (!fare) errs.price = 'Газрын зураг дээр ачаа авах, хүргэх цэгээ тэмдэглэнэ үү — үнэ зайгаар бодогдоно.';
+    else if (d.price < fare.system) errs.price = `Тооцоолсон ${fmt(fare.system)}₮-өөс бага байж болохгүй.`;
     if (d.weight && isNaN(Number(d.weight))) errs.weight = 'Жинг тоогоор оруулна уу.';
     ['title', 'from', 'to', 'price', 'weight'].forEach(k => App.fieldError(form, k, errs[k]));
     const first = Object.keys(errs)[0];
-    if (first) { $(first).focus(); return; }
+    if (first) { (first === 'price' ? (fare ? $('want') : $('pick-map')) : $(first)).focus(); if (first === 'price' && !fare) $('pick-map').scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     if (dateMode === 'pick' && !d.pickupDate) { App.toast('Авах өдрөө сонгоно уу', 'error'); return; }
 
     $('submit').disabled = true;

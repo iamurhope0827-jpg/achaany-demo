@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Тохиргоо · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -77,6 +78,44 @@
         </section>
       </div>
     </div>
+
+    <!-- admin only: the map provider and what the traffic model has learned -->
+    <section class="card card-pad traffic-admin" id="traffic-admin" hidden>
+      <div class="card-head"><div><h2>Зам ба түгжрэл</h2><p>Mapbox-ийн түгжрэл, манай жолоочдын GPS, хүргэлт бүрийн бодит хугацаанаас суралцсан засвар</p></div></div>
+      <div class="ta-grid">
+        <form class="auth-form" id="mapbox-form" novalidate>
+          <div class="form-alert error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+          <p class="ta-status" id="mapbox-status">Ачаалж байна…</p>
+          <div class="field" data-field="token">
+            <label for="mapbox-token">Mapbox access token</label>
+            <div class="input"><input type="password" id="mapbox-token" autocomplete="off" spellcheck="false" placeholder="pk.…" /></div>
+            <span class="hint">mapbox.com → Account → Tokens. Сервер дээрх data\secrets.json-д хадгалагдана, вэбсайт руу хэзээ ч илгээгдэхгүй.</span>
+            <span class="err"></span>
+          </div>
+          <div class="ta-actions">
+            <button type="submit" class="btn btn-primary" id="mapbox-save">Шалгаад хадгалах</button>
+            <button type="button" class="btn btn-ghost" id="mapbox-remove" hidden>Устгах</button>
+          </div>
+        </form>
+        <div>
+          <ul class="kv" id="model-kv"></ul>
+          <div class="section-title">Цагийн бүсээр суралцсан засвар</div>
+          <div class="ta-bands" id="model-bands"></div>
+        </div>
+      </div>
+
+      <!-- the learned ETA model: trained on delivered legs, used only when it beats the current method -->
+      <div class="eta-model">
+        <div class="eta-head">
+          <div><h3>Сурсан хугацааны загвар</h3><p class="hint" id="eta-sub">—</p></div>
+          <button class="btn btn-secondary" id="eta-train">Дахин сургах</button>
+        </div>
+        <div class="eta-body">
+          <div class="eta-scores" id="eta-scores"></div>
+          <ul class="eta-effects" id="eta-effects"></ul>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 <script src="app.js"></script>
@@ -136,7 +175,73 @@
     location.href = 'login.html';
   });
 
-  Auth.ready.then(u => { if (u) renderSettings(u); });
+  // ----- admin: map provider + traffic model -----
+  const SOURCE = { mapbox: 'Mapbox', osrm: 'OSRM', straight: 'шулуун', estimate: 'тооцоо' };
+  function renderTraffic(t) {
+    const mb = t.mapbox;
+    $('mapbox-status').innerHTML = mb.configured
+      ? `<span class="chip done">Холбогдсон</span> ${App.esc(mb.masked)}${mb.from === 'env' ? ' · MAPBOX_TOKEN орчноос' : ''}${mb.lastOk === false ? `<br><small class="hint">Сүүлийн оролдлого амжилтгүй (${App.esc(mb.lastAt)}): ${App.esc(mb.lastError)}</small>` : mb.lastAt ? `<br><small class="hint">Сүүлд ажилласан: ${App.esc(mb.lastAt)}</small>` : ''}`
+      : '<span class="chip waiting">Тохируулаагүй</span> Одоо замыг түгжрэлгүйгээр (OSRM) тооцож байна.';
+    $('mapbox-remove').hidden = !mb.configured || mb.from === 'env';
+    const m = t.model, f = t.fleet;
+    const kv = (k, v) => `<li><span>${k}</span><b>${v}</b></li>`;
+    $('model-kv').innerHTML = [
+      kv('Суралцсан хүргэлт', `${m.trips}`),
+      kv('Ерөнхий засварын коэффициент', `× ${m.all.toFixed(2)}`),
+      kv('Дундаж алдаа: үйлчилгээ / манай загвар', m.maeProvider == null ? '—' : `${m.maeProvider} / ${m.maeModel} мин`),
+      kv('Жолоочийн GPS цэг', `${f.fixes}`),
+      kv('Хурдны дээж / гудамжны нүд', `${f.samples} / ${f.cells}`),
+    ].join('');
+    $('model-bands').innerHTML = Object.values(m.bands).map(b => `
+      <div class="ta-band"><span>${App.esc(b.label)}</span><b>× ${b.factor.toFixed(2)}</b><small>${b.n} хүргэлт</small></div>`).join('');
+    renderEta(t.eta);
+  }
+  function renderEta(e) {
+    if (!e) return;
+    const status = e.active ? '<span class="chip done">Идэвхтэй</span>' : e.trained && e.n >= e.need ? '<span class="chip waiting">Идэвхгүй</span>' : '<span class="chip">Өгөгдөл цуглуулж байна</span>';
+    $('eta-sub').innerHTML = `${status} ${e.learnable} / ${e.need} хүргэлт${e.trainedAt ? ` · сүүлд сургасан ${App.esc(e.trainedAt)}` : ''}${e.reason ? `<br>${App.esc(e.reason)}` : ''}`;
+    const score = (label, v, best) => `<div class="eta-score${best ? ' best' : ''}"><span>${label}</span><b>${v == null ? '—' : v + ' мин'}</b></div>`;
+    const best = Math.min(...[e.maeModel, e.maeCurrent, e.maeProvider].filter(v => v != null));
+    $('eta-scores').innerHTML = e.maeModel == null
+      ? `<p class="hint">${e.need} хүргэлт бүртгэгдмэгц загвар өөрөө суралцаж, шалгалтын хүргэлтүүд дээр одоогийн аргатай харьцуулагдана. Илүү нарийвчлалтай бол л идэвхжинэ.</p>`
+      : `<p class="hint">Шалгалтын ${e.testN} хүргэлт дээрх дундаж алдаа (бага нь сайн)</p>` +
+        score('Сурсан загвар', e.maeModel, e.maeModel === best) + score('Одоогийн арга', e.maeCurrent, e.maeCurrent === best) + score('Газрын зургийн үйлчилгээ', e.maeProvider, e.maeProvider === best);
+    $('eta-effects').innerHTML = (e.effects || []).filter(x => x.id !== 'baseMin').map(x => `
+      <li><span>${App.esc(x.label)}</span><b>${x.value > 0 ? '+' : ''}${x.value} мин</b></li>`).join('')
+      + ((e.effects || []).find(x => x.id === 'baseMin') ? `<li><span>Замын тооцоот минут бүр</span><b>× ${(e.effects.find(x => x.id === 'baseMin').value).toFixed(2)}</b></li>` : '');
+  }
+  $('eta-train').addEventListener('click', async () => {
+    const b = $('eta-train'); b.disabled = true; b.textContent = 'Сургаж байна…';
+    try { const t = await App.api('/api/admin/eta/train', {}); renderTraffic(t); App.toast(t.eta.active ? 'Загвар сургагдаж, идэвхжлээ' : 'Загвар шинэчлэгдлээ'); }
+    catch (err) { App.toast(err.message, 'error'); }
+    finally { b.disabled = false; b.textContent = 'Дахин сургах'; }
+  });
+  async function loadTraffic() { try { renderTraffic(await App.api('/api/admin/traffic')); } catch (e) { $('mapbox-status').textContent = e.message; } }
+  const mf = $('mapbox-form');
+  mf.addEventListener('input', () => { App.fieldError(mf, 'token', ''); App.formAlert(mf, ''); });
+  mf.addEventListener('submit', async e => {
+    e.preventDefault();
+    const token = $('mapbox-token').value.trim();
+    if (!token) { App.fieldError(mf, 'token', 'Token-оо оруулна уу.'); return; }
+    $('mapbox-save').disabled = true; $('mapbox-save').textContent = 'Шалгаж байна…';
+    try { renderTraffic(await App.api('/api/admin/mapbox', { token })); $('mapbox-token').value = ''; App.toast('Mapbox холбогдлоо'); }
+    catch (err) { if (!(err.field && App.fieldError(mf, err.field, err.message))) App.formAlert(mf, err.message); }
+    finally { $('mapbox-save').disabled = false; $('mapbox-save').textContent = 'Шалгаад хадгалах'; }
+  });
+  $('mapbox-remove').addEventListener('click', async () => {
+    const b = $('mapbox-remove');
+    if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Дахин дарж баталгаажуулна уу'; return; }
+    try { renderTraffic(await App.api('/api/admin/mapbox', { token: '' })); App.toast('Mapbox token устгагдлаа'); }
+    catch (e) { App.toast(e.message, 'error'); }
+    b.dataset.confirm = ''; b.textContent = 'Устгах';
+  });
+
+  Auth.ready.then(u => {
+    if (!u) return;
+    renderSettings(u);
+    // the demo has no server, so nothing to configure there
+    if (u.role === 'admin' && !(typeof MockApi !== 'undefined' && MockApi.enabled)) { $('traffic-admin').hidden = false; loadTraffic(); }
+  });
 </script>
 </body>
 </html>

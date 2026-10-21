@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Данс ба нэхэмжлэх · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -23,20 +24,20 @@
     </section>
 
     <section class="wallet-grid">
-      <div class="balance">
-        <div class="balance-top"><span>Хэтэвчний үлдэгдэл</span><span class="tag-light" id="plan-tag">Багц аваагүй</span></div>
+      <article class="card card-pad balance-block">
+        <div class="card-head"><div><h2>Хэтэвчний үлдэгдэл</h2><p id="plan-tag">Багц аваагүй</p></div></div>
         <div class="amount" id="balance">0₮</div>
         <div class="sub" id="plan-sub">Гишүүнчлэлийн багц идэвхгүй</div>
-        <div class="balance-actions">
-          <button id="topup-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Цэнэглэх</button>
-          <a href="profile.html#plans" class="balance-link"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Багц</a>
-          <a href="promotions.html" class="balance-link"><svg viewBox="0 0 24 24"><path d="M3 9h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z"/></svg>Купон</a>
+        <div class="actions">
+          <button class="btn btn-secondary" id="topup-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Цэнэглэх</button>
+          <a href="profile.html#plans" class="btn btn-ghost">Багц</a>
+          <a href="promotions.html" class="btn btn-ghost">Купон</a>
         </div>
-        <div class="autopay">
+        <div class="autopay" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--rule)">
           <span>Ачаа хүргэгдмэгц жолоочид автоматаар төлөх</span>
           <button class="switch" id="autopay" role="switch" aria-checked="true" aria-label="Автомат төлөлт"></button>
         </div>
-      </div>
+      </article>
 
       <div class="card card-pad" id="transactions">
         <div class="card-head">
@@ -75,10 +76,22 @@
   const $ = id => document.getElementById(id);
   let txs = [];
   let kind = 'all';
-  const KIND = { topup: 'Цэнэглэлт', plan: 'Багц', coupon: 'Урамшуулал' };
+  const KIND = { topup: 'Цэнэглэлт', plan: 'Багц', coupon: 'Урамшуулал', earning: 'Хүргэлтийн орлого' };
+
+  // a driver's wallet is where delivery pay lands: show earnings, drop the shipper-only parts
+  function driverView() {
+    document.querySelector('.page-head h1').textContent = 'Орлого ба данс';
+    document.querySelector('.page-head p').textContent = 'Хүргэлт бүрийн орлого таны дансанд шууд орно';
+    document.querySelector('.page-actions').innerHTML = '<a href="driver.html" class="btn btn-primary">Самбар руу</a>';
+    document.querySelector('.balance-block h2').textContent = 'Дансны үлдэгдэл';
+    document.querySelectorAll('#plan-tag, #plan-sub, .balance-block .actions, .balance-block .autopay').forEach(el => el.remove());
+    $('tx-filter').innerHTML = '<button class="active" data-k="all">Бүгд</button><button data-k="earning">Орлого</button>';
+  }
 
   function renderUser(u) {
+    if (u.role === 'driver') { $('balance').textContent = money(u.wallet); $('balance').classList.toggle('zero', !u.wallet); return; }
     $('balance').textContent = money(u.wallet);
+    $('balance').classList.toggle('zero', !u.wallet);
     $('plan-tag').textContent = u.plan ? `${u.plan} багц` : 'Багц аваагүй';
     $('plan-sub').textContent = u.plan ? `${u.plan} багц · ${u.planUntil} хүртэл` : 'Гишүүнчлэлийн багц идэвхгүй';
     const on = u.settings ? u.settings.autopay : true;
@@ -117,7 +130,7 @@
       html: `
         <div class="receipt">
           <div class="receipt-head">
-            <div><b>Ачааны төв</b><br><small class="hint">Тээврийн удирдлагын систем</small></div>
+            <div><b>Ачааны төв</b><br><small class="hint">Хүргэлтийн систем</small></div>
             <div style="text-align:right"><b style="font-size:14px">${esc(t.no)}</b><br><small class="hint">${esc(t.at)}</small></div>
           </div>
           <ul class="kv" style="padding:0">
@@ -166,7 +179,7 @@
     } catch (e) { App.toast(e.message, 'error'); }
   });
 
-  Auth.ready.then(u => { if (!u) return; renderUser(u); load(); });
+  Auth.ready.then(u => { if (!u) return; if (u.role === 'driver') driverView(); renderUser(u); load(); });
 </script>
 </body>
 </html>

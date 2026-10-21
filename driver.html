@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Жолоочийн самбар · Ачааны төв</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="styles.css" />
+<script src="mock-api.js"></script>
+<script src="auth.js"></script>
+<script>Auth.requireLogin();</script>
+</head>
+<body data-page="driver">
+<div class="main">
+  <main class="content">
+    <section class="bento driver-bento" aria-label="Жолоочийн самбар">
+      <!-- on/off duty, and the route of what the driver carries -->
+      <article class="tile t-live t-duty" id="duty">
+        <header>
+          <span class="duty-dot" id="duty-dot" aria-hidden="true"></span>
+          <div class="duty-text"><h1 id="duty-title">Ачаалж байна…</h1><p class="tile-sub" id="duty-sub"></p></div>
+          <button class="btn btn-ghost" id="settings-btn">Тохиргоо</button>
+          <button class="btn btn-primary" id="online-btn" disabled>Онлайн болох</button>
+        </header>
+        <div class="consent-note" id="consent" hidden>
+          <p><b>Байршлаа хуваалцах уу?</b>Таны байршил зөвхөн онлайн байх үед, таны авсан захиалгын захиалагчид харагдана. Ачаа тээж яваа үеийн хурдыг замын түгжрэлийг тооцоход ашиглана. Замыг тооцохдоо цэгүүдийг газрын зургийн үйлчилгээ (Mapbox, АНУ) руу илгээнэ.</p>
+          <button class="btn btn-primary" id="consent-yes">Зөвшөөрөх</button>
+        </div>
+        <div class="live-map" id="duty-map"></div>
+        <div class="live-info">
+          <div class="section-title" style="margin-top:0">Замын дараалал <small class="plan-note" id="plan-note"></small></div>
+          <ol class="stops" id="stops"></ol>
+        </div>
+      </article>
+
+      <!-- today's pay -->
+      <article class="tile t-wallet t-earn">
+        <div class="tile-head" style="margin:0"><div><h2>Өнөөдрийн орлого</h2><p class="tile-sub" id="earn-sub">0 хүргэлт</p></div><a href="wallet.html" class="btn btn-ghost">Данс</a></div>
+        <div class="amount" id="earn-today">0₮</div>
+        <ul class="earn-break" id="earn-break"></ul>
+        <div class="earn-days" id="earn-days" role="img"></div>
+        <div class="streak" id="streak"></div>
+      </article>
+
+      <!-- what the driver carries now -->
+      <article class="tile t-jobs">
+        <div class="tile-head"><div><h2>Миний ачаа</h2><p class="tile-sub" id="jobs-sub">Нэг дор 4 хүртэл ачаа нэг замаар</p></div></div>
+        <div class="jobs" id="jobs"></div>
+      </article>
+
+      <!-- the open board (crowd drivers) or the district (dedicated drivers) -->
+      <article class="tile t-open">
+        <div class="tile-head"><div><h2 id="open-title">Нээлттэй захиалга</h2><p class="tile-sub" id="open-sub"></p></div></div>
+        <div class="open-list" id="open"></div>
+      </article>
+
+      <!-- recent deliveries -->
+      <article class="tile t-recent">
+        <div class="tile-head"><div><h2>Сүүлийн хүргэлтүүд</h2><p class="tile-sub" id="week-sub">Сүүлийн 7 хоног</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Огноо</th><th>Захиалга</th><th class="price col-split">Суурь</th><th class="price col-split">Хувь</th><th class="price col-split">Урамшуулал</th><th class="price">Нийт</th></tr></thead>
+            <tbody id="recent"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <!-- how pay is worked out -->
+      <article class="tile t-rules">
+        <div class="tile-head"><div><h2>Орлого хэрхэн бодогдох вэ</h2><p class="tile-sub">Хүргэлт бүрт</p></div></div>
+        <ul class="kv" id="rules"></ul>
+      </article>
+    </section>
+  </main>
+</div>
+
+<script src="app.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="map.js"></script>
+<script>
+  const { esc, money } = App;
+  const $ = id => document.getElementById(id);
+  let data = null;
+  let busy = false;
+
+  // ----- GPS: while online the phone's position goes to the server (every 15 s at most), so the
+  // customers whose orders this driver carries see it move on their map
+  let myPos = null, lastMapKey = null, gpsState = 'off', watchId = null, lastSent = 0;
+  function gps(on) {
+    if (!on) { if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null; if (gpsState === 'on') gpsState = 'off'; return; }
+    if (watchId !== null || gpsState === 'denied' || !navigator.geolocation) return;
+    watchId = navigator.geolocation.watchPosition(p => {
+      const first = !myPos;
+      myPos = [p.coords.latitude, p.coords.longitude];
+      gpsState = 'on';
+      if (Date.now() - lastSent > 15000) { lastSent = Date.now(); App.api('/api/driver/location', { lat: myPos[0], lng: myPos[1] }).catch(() => {}); }
+      if (first) render();
+    }, () => { gpsState = 'denied'; watchId = null; render(); }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
+  }
+
+  const STAGE = { assigned: { label: 'Авахаар явж буй', next: 'Ачааг авлаа' }, picked: { label: 'Хүргэж буй', next: 'Хүргэлээ' } };
+  const pct = r => Math.round(r * 100) + '%';
+  const payLine = p => [p.base && `суурь ${money(p.base)}`, p.commission && `хувь ${money(p.commission)}`, (p.bonus + (p.streak || 0)) && `урамшуулал ${money(p.bonus + (p.streak || 0))}`].filter(Boolean).join(' + ');
+
+  // pickups still to make come first, then the drop-offs, in the order the orders came in
+  // the server's plan (shortest valid order on traffic times) when there is one
+  function stopsOf(active, plan) {
+    const byNo = Object.fromEntries(active.map(o => [o.no, o]));
+    if (plan && plan.stops && plan.stops.every(s => byNo[s.no])) return plan.stops.map(s => ({ kind: s.kind, o: byNo[s.no], eta: s.etaMin }));
+    const s = [];
+    active.filter(o => o.stage === 'assigned').forEach(o => s.push({ kind: 'from', o }));
+    active.forEach(o => s.push({ kind: 'to', o }));
+    return s;
+  }
+
+  function renderDuty(d) {
+    const on = d.driver.online;
+    const dedicated = d.driver.kind === 'dedicated';
+    $('duty').classList.toggle('offline', !on);
+    $('duty-title').textContent = !on ? 'Офлайн' : d.active.length ? `Замдаа · ${d.active.length} ачаа` : 'Онлайн · захиалга хүлээж байна';
+    $('duty-sub').textContent = `${d.driver.kindLabel} · ${d.driver.zone} · ${d.driver.vehicle}` + (on ? (gpsState === 'on' ? ' · байршил хуваалцаж байна' : gpsState === 'denied' ? ' · байршил хуваалцаагүй' : '') : '');
+    // location is shared only with the driver's consent (Personal Data Protection Law)
+    const consent = !!(Auth.current() || {}).locationConsent;
+    $('consent').hidden = consent || !on;
+    gps(on && consent);
+    const btn = $('online-btn');
+    btn.disabled = false;
+    btn.textContent = on ? 'Офлайн болох' : 'Онлайн болох';
+    btn.className = 'btn ' + (on ? 'btn-secondary' : 'btn-primary');
+
+    // the map is rebuilt only when the stops change (or the first GPS fix arrives), not on every refresh
+    const planKey = d.plan ? d.plan.stops.map(s => s.kind + s.no).join() : '';
+    const mapKey = d.active.map(o => o.no + o.stage).join() + '|' + planKey + '|' + !!myPos + '|' + on;
+    if (mapKey !== lastMapKey) {
+      lastMapKey = mapKey;
+      $('duty').classList.toggle('om-off', !on);
+      OrderMap.stops($('duty-map'), d.active, { me: myPos, plan: d.plan });
+    }
+    const stops = stopsOf(d.active, d.plan);
+    $('plan-note').textContent = d.plan ? `Нийт ≈ ${Math.round(d.plan.totalMin)} мин · ${d.plan.source === 'mapbox' ? 'түгжрэлийг тооцсон' : 'зайгаар тооцсон'}${d.plan.fromGps ? ' · таны байршлаас' : ''}` : '';
+    $('stops').innerHTML = stops.length ? stops.map((s, i) => `
+      <li class="${i === 0 ? 'next' : ''}"><i>${i + 1}</i><span><small>${s.kind === 'from' ? 'Авах' : 'Хүргэх'} · № ${esc(s.o.no)}${s.eta != null ? ` · ≈ ${Math.max(1, Math.round(s.eta))} мин` : ''}</small>${esc(s.kind === 'from' ? s.o.from : s.o.to)}</span></li>`).join('')
+      : `<li class="none">${!on ? 'Онлайн болсон үед захиалга авна.' : dedicated ? `${esc(d.driver.zone)} дүүрэгт шинэ захиалга орж ирмэгц танд автоматаар оноогдоно.` : 'Нээлттэй захиалгаас сонгож аваарай.'}</li>`;
+  }
+
+  function renderEarn(d) {
+    const t = d.today;
+    $('earn-today').textContent = money(t.total);
+    $('earn-today').classList.toggle('zero', !t.total);
+    $('earn-sub').textContent = `${t.count} хүргэлт · 7 хоногт ${money(d.week.total)}`;
+    $('earn-break').innerHTML = [['Суурь хөлс', t.base], ['Үнийн хувь', t.commission], ['Урамшуулал', t.bonus]]
+      .map(([k, v]) => `<li><span>${k}</span><b>${money(v)}</b></li>`).join('');
+    // the last seven days, today last
+    const WD = ['Ня', 'Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя'];
+    const max = Math.max(...d.days.map(x => x.total), 1);
+    $('earn-days').setAttribute('aria-label', 'Сүүлийн 7 хоногийн орлого: ' + d.days.map(x => `${x.date} ${money(x.total)}`).join(', '));
+    $('earn-days').innerHTML = d.days.map((x, i) => `
+      <span class="${i === d.days.length - 1 ? 'today' : ''}" title="${x.date} · ${money(x.total)}">
+        <i style="height:${Math.max(x.total / max * 100, x.total ? 8 : 3)}%"></i><small>${WD[new Date(x.date + 'T00:00').getDay()]}</small>
+      </span>`).join('');
+    const every = d.rules.streakEvery;
+    const into = d.todayCount % every;
+    $('streak').innerHTML = `
+      <div class="streak-head"><span>${every} дахь хүргэлт бүрт +${money(d.rules.streak)}</span><b>${into}/${every}</b></div>
+      <div class="streak-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${every}" aria-valuenow="${into}" aria-label="Урамшуулал хүртэл">${Array.from({ length: every }, (_, i) => `<i${i < into ? ' class="on"' : ''}></i>`).join('')}</div>`;
+  }
+
+  function renderJobs(d) {
+    $('jobs-sub').textContent = `${d.active.length}/${d.rules.maxActive} ачаа · нэг замаар зэрэг хүргэнэ`;
+    $('jobs').innerHTML = d.active.length ? d.active.map(o => {
+      const st = STAGE[o.stage] || STAGE.assigned;
+      return `
+      <article class="job" data-no="${esc(o.no)}">
+        <header><div><b>${esc(o.title)}</b><small class="mono">№ ${esc(o.no)}${o.assignedBy === 'auto' ? ' · систем оноосон' : ''}</small></div><span class="chip ${o.stage === 'picked' ? 'transit' : 'waiting'}">${st.label}</span></header>
+        <ol class="job-route">
+          <li><small>Авах</small>${esc(o.from)}</li>
+          <li><small>Хүргэх</small>${esc(o.to)}</li>
+        </ol>
+        <p class="job-meta">${[o.customer && esc(o.customer), o.customerPhone && `<a href="tel:${esc(o.customerPhone)}">${esc(o.customerPhone)}</a>`, (o.needs || []).map(esc).join(', '), o.urgent && 'Яаралтай', o.weight && esc(o.weight) + ' кг'].filter(Boolean).join(' · ')}</p>
+        ${o.note ? `<p class="job-note">${esc(o.note)}</p>` : ''}
+        <footer>
+          <div class="job-pay"><b class="num">${money(o.pay.total)}</b><small>${payLine(o.pay)}</small></div>
+          ${o.stage === 'assigned' ? '<button class="btn btn-ghost" data-act="release">Буцаах</button>' : ''}
+          <a class="btn btn-secondary" href="messages.html">Чат</a>
+          <button class="btn btn-primary" data-act="advance">${st.next}</button>
+        </footer>
+      </article>`;
+    }).join('') : `<div class="empty-inline"><b>Одоогоор ачаа алга</b>${d.driver.kind === 'dedicated' ? 'Систем танд захиалга оноомогц энд гарч ирнэ.' : 'Баруун талын нээлттэй захиалгаас аваарай.'}</div>`;
+  }
+
+  function renderOpen(d) {
+    if (d.driver.kind === 'dedicated') {
+      $('open-title').textContent = `Миний бүс · ${d.driver.zone}`;
+      $('open-sub').textContent = 'Үндсэн жолоочид захиалгыг систем хуваарилна';
+      $('open').innerHTML = `
+        <div class="zone-card">
+          <b class="num">${d.zoneQueue}</b>
+          <span>${d.zoneQueue ? 'захиалга жолооч хүлээж байна' : 'захиалга хүлээгдэж буй зүйл алга'}</span>
+        </div>
+        <p class="hint" style="margin-top:12px">${esc(d.driver.zone)} дүүргээс авах захиалга орж ирэхэд систем онлайн байгаа үндсэн жолоочдоос хамгийн цөөн ачаатайд нь онооно. Та нэг дор ${d.rules.maxActive} хүртэл ачаа авна.</p>
+        <button class="btn btn-secondary" id="switch-crowd" style="margin-top:14px">Чөлөөт жолооч болох</button>`;
+      $('switch-crowd').addEventListener('click', () => saveProfile({ kind: 'crowd', zone: d.driver.zone, vehicle: d.driver.vehicle }));
+      return;
+    }
+    $('open-title').textContent = 'Нээлттэй захиалга';
+    $('open-sub').textContent = d.board.length ? `${d.board.length} захиалга · замын дагуух нь эхэндээ` : 'Шинэ захиалга орж ирэхэд энд гарна';
+    // cheapest for this driver first: the minutes each order adds to their route (priced by the server),
+    // then on-the-way and fitting ones
+    const cost = o => (o.extraMin == null ? Infinity : o.extraMin);
+    const list = d.board.slice().sort((a, b) => (b.fits - a.fits) || (cost(a) - cost(b)) || (b.onTheWay - a.onTheWay));
+    $('open').innerHTML = list.length ? list.map(o => `
+      <div class="offer-row${o.fits ? '' : ' no-fit'}">
+        <div class="offer-main">
+          <b>${esc(o.title)}</b>
+          <small>${esc(o.from)} → ${esc(o.to)}</small>
+          <span class="offer-tags">${o.extraMin != null ? `<span class="chip transit" title="Таны одоогийн замд нэмэгдэх хугацаа">+${Math.max(1, Math.round(o.extraMin))} мин таны замд</span>` : ''}${o.onTheWay && o.extraMin == null ? '<span class="chip transit">Замын дагуу</span>' : ''}${o.urgent ? '<span class="chip waiting">Яаралтай</span>' : ''}${o.zone ? `<span class="chip">${esc(o.zone)}</span>` : ''}${(o.needs || []).map(n => `<span class="chip">${esc(n)}</span>`).join('')}</span>
+        </div>
+        <div class="offer-side">
+          <b class="num">${money(o.pay.total)}</b>
+          ${o.fits ? `<button class="btn btn-primary" data-take="${esc(o.no)}"${d.driver.online ? '' : ' disabled title="Эхлээд онлайн болно уу"'}>Авах</button>` : '<small>Өөр тээвэр хэрэгтэй</small>'}
+        </div>
+      </div>`).join('') : `<div class="empty-inline"><b>Нээлттэй захиалга алга</b>Захиалагч шинэ ачаа бүртгэхэд энд шууд гарч ирнэ.</div>`;
+  }
+
+  function renderRecent(d) {
+    $('week-sub').textContent = `7 хоногт ${d.week.count} хүргэлт · ${money(d.week.total)}`;
+    $('recent').innerHTML = d.recent.length ? d.recent.map(o => `
+      <tr>
+        <td class="muted">${esc(o.deliveredAt)}</td>
+        <td><b>${esc(o.title)}</b><br><small class="hint mono">№ ${esc(o.no)}</small></td>
+        <td class="price col-split">${money(o.pay.base)}</td>
+        <td class="price col-split">${money(o.pay.commission)}</td>
+        <td class="price col-split">${money(o.pay.bonus + (o.pay.streak || 0))}</td>
+        <td class="price"><b>${money(o.pay.total)}</b></td>
+      </tr>`).join('') : `<tr><td colspan="6"><div class="empty-inline"><b>Хүргэлт алга</b>Эхний хүргэлтээ дуусгахад орлого энд бичигдэнэ.</div></td></tr>`;
+  }
+
+  function renderRules(d) {
+    const r = d.rules;
+    const mine = d.driver.kind;
+    $('rules').innerHTML = `
+      <li><span>Суурь хөлс · Үндсэн жолооч</span><b${mine === 'dedicated' ? ' class="good"' : ''}>${money(r.base.dedicated)}</b></li>
+      <li><span>Суурь хөлс · Чөлөөт жолооч</span><b${mine === 'crowd' ? ' class="good"' : ''}>${money(r.base.crowd)}</b></li>
+      <li><span>Захиалгын үнийн хувь</span><b>${pct(r.rate)}</b></li>
+      <li><span>Яаралтай захиалга</span><b>+${money(r.urgent)}</b></li>
+      <li><span>Өдрийн ${r.streakEvery} дахь хүргэлт бүрт</span><b>+${money(r.streak)}</b></li>`;
+  }
+
+  function render() {
+    if (!data) return;
+    renderDuty(data); renderEarn(data); renderJobs(data); renderOpen(data); renderRecent(data); renderRules(data);
+  }
+  window.render = render;
+
+  async function call(path, body, okMsg) {
+    if (busy) return;
+    busy = true;
+    document.body.classList.add('is-busy');
+    try {
+      const before = data ? data.active.length : 0;
+      data = await App.api(path, body);
+      render();
+      if (okMsg) App.toast(okMsg);
+      else if (body && data.active.length > before && path !== '/api/driver/take') App.toast('Танд шинэ захиалга оноогдлоо');
+      App.loadNotifications();
+    } catch (e) { App.toast(e.message, 'error'); }
+    finally { busy = false; document.body.classList.remove('is-busy'); }
+  }
+
+  async function refresh() {
+    if (busy || document.hidden) return;
+    try {
+      const before = data ? data.active.length : 0;
+      const d = await App.api('/api/driver');
+      data = d; render();
+      if (d.active.length > before) { App.toast('Танд шинэ захиалга оноогдлоо'); App.loadNotifications(); }
+    } catch { }
+  }
+
+  function saveProfile(p) { return call('/api/driver/profile', p, 'Тохиргоо хадгалагдлаа'); }
+
+  function openSettings() {
+    const d = data.driver;
+    const m = App.modal({
+      title: 'Жолоочийн тохиргоо',
+      html: `
+        <form class="auth-form" novalidate>
+          <div class="form-alert error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+          <div class="field" data-field="kind">
+            <label>Жолоочийн төрөл</label>
+            <div class="kind-pick">
+              <label><input type="radio" name="kind" value="dedicated"${d.kind === 'dedicated' ? ' checked' : ''} /><b>Үндсэн жолооч</b><small>Нэг дүүрэгт ажиллана, захиалгыг систем онооно. Суурь хөлс ${money(data.rules.base.dedicated)}.</small></label>
+              <label><input type="radio" name="kind" value="crowd"${d.kind === 'crowd' ? ' checked' : ''} /><b>Чөлөөт жолооч</b><small>Самбараас өөрөө сонгоно. Суурь хөлс ${money(data.rules.base.crowd)}.</small></label>
+            </div>
+            <span class="err"></span>
+          </div>
+          <div class="row-2">
+            <div class="field" data-field="zone"><label for="s-zone">Ажиллах дүүрэг</label>
+              <div class="input"><select id="s-zone">${data.districts.map(z => `<option${z === d.zone ? ' selected' : ''}>${esc(z)}</option>`).join('')}</select></div><span class="err"></span></div>
+            <div class="field" data-field="vehicle"><label for="s-vehicle">Тээврийн хэрэгсэл</label>
+              <div class="input"><select id="s-vehicle">${data.vehicles.map(v => `<option${v === d.vehicle ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div><span class="err"></span></div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" data-close>Болих</button>
+            <button type="submit" class="btn btn-primary">Хадгалах</button>
+          </div>
+        </form>`,
+    });
+    m.$('form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const body = { kind: m.$('input[name="kind"]:checked').value, zone: m.$('#s-zone').value, vehicle: m.$('#s-vehicle').value };
+      try {
+        data = await App.api('/api/driver/profile', body);
+        m.close(); render(); App.toast('Тохиргоо хадгалагдлаа');
+      } catch (err) { if (!(err.field && App.fieldError(m.el, err.field, err.message))) App.formAlert(m.el, err.message); }
+    });
+  }
+
+  $('online-btn').addEventListener('click', () => {
+    const on = !data.driver.online;
+    call('/api/driver/online', { online: on }, on ? 'Та онлайн боллоо' : 'Та офлайн боллоо');
+  });
+  $('settings-btn').addEventListener('click', () => data && openSettings());
+  $('consent-yes').addEventListener('click', async () => {
+    try { const d = await App.api('/api/driver/consent', { accept: true }); Auth.setUser(d.user); App.toast('Байршил хуваалцаж эхэллээ'); render(); }
+    catch (e) { App.toast(e.message, 'error'); }
+  });
+  $('jobs').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const no = b.closest('.job').dataset.no;
+    const o = data.active.find(x => x.no === no);
+    if (b.dataset.act === 'release') {
+      if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Дахин дарж баталгаажуулна уу'; return; }
+      call('/api/driver/release', { no }, 'Захиалгыг буцаалаа');
+    } else call('/api/driver/advance', { no }, o && o.stage === 'picked' ? `Хүргэгдлээ · +${money(o.pay.total)} орлого` : 'Ачааг авлаа — хүргэлтэд гарлаа');
+  });
+  $('open').addEventListener('click', e => {
+    const b = e.target.closest('[data-take]');
+    if (b) call('/api/driver/take', { no: b.dataset.take }, 'Захиалга авлаа');
+  });
+
+  Auth.ready.then(async u => {
+    if (!u || u.role !== 'driver') return;
+    try { data = await App.api('/api/driver'); render(); } catch (e) { App.toast(e.message, 'error'); }
+    // new orders reach dedicated drivers without a click, so look again every few seconds
+    setInterval(refresh, 8000);
+  });
+</script>
+</body>
+</html>

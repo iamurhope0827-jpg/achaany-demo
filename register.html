@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Бүртгүүлэх · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -15,11 +16,11 @@
 <div class="auth">
   <aside class="auth-side">
     <div class="brand">
-      <span class="brand-mark">А</span>
-      <div class="brand-text"><b>Ачааны төв</b><small>Тээврийн удирдлагын систем</small></div>
+      <span class="brand-mark"><svg viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="6" width="20" height="16" rx="2.5"/><path d="M3 11h20M13 6v5"/><path d="M8 16.5h4.5l2-2"/></svg></span>
+      <div class="brand-text"><b>Ачааны төв</b><small>Хүргэлтийн систем</small></div>
     </div>
     <div class="auth-pitch">
-      <h2>Хэдхэн минутад <em>бүртгүүлээд</em> эхлээрэй.</h2>
+      <h2>Хэдхэн минутад эхлээрэй</h2>
       <p>Нэг бүртгэлээр бүх хүргэлтээ удирдана.</p>
       <ul class="auth-points">
         <li><span><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><div><b>Ачаагаа бүртгэ</b><small>Хаяг, хэмжээ, хугацаагаа оруулна</small></div></li>
@@ -33,20 +34,60 @@
   <main class="auth-main">
     <div class="auth-card">
       <div class="brand">
-        <span class="brand-mark">А</span>
-        <div class="brand-text"><b>Ачааны төв</b><small>Тээврийн удирдлагын систем</small></div>
+        <span class="brand-mark"><svg viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="6" width="20" height="16" rx="2.5"/><path d="M3 11h20M13 6v5"/><path d="M8 16.5h4.5l2-2"/></svg></span>
+        <div class="brand-text"><b>Ачааны төв</b><small>Хүргэлтийн систем</small></div>
       </div>
       <h1>Бүртгүүлэх</h1>
-      <p class="lead">Шинэ бүртгэл үүсгээд ачаагаа илгээж эхлээрэй.</p>
+      <p class="lead" id="register-lead">Шинэ бүртгэл үүсгээд ачаагаа илгээж эхлээрэй.</p>
 
       <form class="auth-form" id="register-form" novalidate>
         <div class="form-alert error" id="form-error" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
 
         <div class="field">
           <label>Бүртгэлийн төрөл</label>
-          <div class="type-pick">
+          <div class="type-pick three">
             <label><input type="radio" name="type" value="Хувь хүн" checked /><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Хувь хүн</label>
             <label><input type="radio" name="type" value="Байгууллага" /><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg>Байгууллага</label>
+            <label><input type="radio" name="type" value="driver" /><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M3.5 10.5c5.5-2 11.5-2 17 0M10.5 13.5L8 20.5M13.5 13.5l2.5 7"/></svg>Жолооч</label>
+          </div>
+        </div>
+
+        <!-- driver accounts only -->
+        <div id="driver-fields" hidden>
+          <div class="field" id="f-kind">
+            <label>Жолоочийн төрөл</label>
+            <div class="kind-pick">
+              <label><input type="radio" name="kind" value="dedicated" checked /><b>Үндсэн жолооч</b><small>Нэг дүүрэгт ажиллана. Захиалгыг систем танд автоматаар онооно.</small></label>
+              <label><input type="radio" name="kind" value="crowd" /><b>Чөлөөт жолооч</b><small>Цагаа өөрөө сонгоно. Нээлттэй самбараас захиалгаа авна.</small></label>
+            </div>
+            <span class="err"></span>
+          </div>
+          <div class="row-2">
+            <div class="field" id="f-zone">
+              <label for="zone">Ажиллах дүүрэг</label>
+              <div class="input"><select id="zone">
+                <option>Баянгол</option><option>Баянзүрх</option><option>Сонгинохайрхан</option><option selected>Сүхбаатар</option><option>Хан-Уул</option><option>Чингэлтэй</option><option>Налайх</option><option>Багануур</option><option>Багахангай</option>
+              </select></div>
+              <span class="err"></span>
+            </div>
+            <div class="field" id="f-vehicle">
+              <label for="vehicle">Тээврийн хэрэгсэл</label>
+              <div class="input"><select id="vehicle"><option>Мопед</option><option>Суудлын автомашин</option><option>Портер</option></select></div>
+              <span class="err"></span>
+            </div>
+          </div>
+          <div class="field" id="f-phone">
+            <label for="phone">Утас</label>
+            <div class="input">
+              <svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+              <input type="tel" id="phone" inputmode="numeric" autocomplete="tel" placeholder="8 оронтой дугаар" />
+            </div>
+            <span class="hint">Захиалагч танд залгаж холбогдоно.</span>
+            <span class="err"></span>
+          </div>
+          <div class="field" id="f-consent">
+            <label class="check"><input type="checkbox" id="consent" /><span>Онлайн байх үедээ байршлаа хуваалцахыг зөвшөөрч байна. Байршил зөвхөн миний авсан захиалгын захиалагчид харагдах ба ачаа тээж яваа үеийн хурдыг замын түгжрэлийг тооцоход ашиглана. Замыг тооцохдоо цэгүүдийг газрын зургийн үйлчилгээ (Mapbox, АНУ) руу илгээнэ.</span></label>
+            <span class="err"></span>
           </div>
         </div>
 
@@ -114,14 +155,19 @@
     btn.setAttribute('aria-label', input.type === 'password' ? 'Нууц үг харах' : 'Нууц үг нуух');
   }));
 
-  // Organisation accounts ask for the company name instead
+  // Organisation accounts ask for the company name instead; driver accounts show their own fields
+  const isDriver = () => document.querySelector('input[name="type"]:checked').value === 'driver';
   document.querySelectorAll('input[name="type"]').forEach(r => r.addEventListener('change', () => {
     const org = r.value === 'Байгууллага' && r.checked;
     if (!r.checked) return;
     $('name-label').textContent = org ? 'Байгууллагын нэр' : 'Овог нэр';
     $('name').placeholder = org ? 'Жишээ: Тэс Логистик ХХК' : 'Жишээ: Болд Бат';
     $('name').autocomplete = org ? 'organization' : 'name';
+    $('driver-fields').hidden = !isDriver();
+    $('register-lead').textContent = isDriver() ? 'Жолоочоор бүртгүүлээд захиалга авч, орлогоо хянаарай.' : 'Шинэ бүртгэл үүсгээд ачаагаа илгээж эхлээрэй.';
   }));
+  $('phone').addEventListener('input', () => setError('f-phone', ''));
+  $('consent').addEventListener('change', () => setError('f-consent', ''));
 
   function setError(fieldId, msg) {
     const f = $(fieldId);
@@ -162,11 +208,17 @@
     else if (Auth.passwordScore(password) < 2) errors.password = 'Нууц үг хэт энгийн байна. Тоо эсвэл том үсэг нэмээрэй.';
     if (!confirm) errors.confirm = 'Нууц үгээ давтан оруулна уу.';
     else if (confirm !== password) errors.confirm = 'Нууц үг таарахгүй байна.';
+    const phone = $('phone').value.replace(/\s/g, '');
+    if (isDriver() && !/^\d{8}$/.test(phone)) errors.phone = 'Утасны дугаар 8 оронтой байна.';
+    if (isDriver() && !$('consent').checked) errors.consent = 'Жолооч байршлаа хуваалцах шаардлагатай.';
     if (!$('terms').checked) errors.terms = 'Үргэлжлүүлэхийн тулд нөхцөлийг зөвшөөрнө үү.';
-    ['name', 'email', 'password', 'confirm', 'terms'].forEach(k => setError('f-' + k, errors[k]));
+    ['name', 'email', 'password', 'confirm', 'phone', 'consent', 'terms'].forEach(k => setError('f-' + k, errors[k]));
     const first = Object.keys(errors)[0];
     if (first) (first === 'terms' ? $('terms') : $(first)).focus();
-    return !first && { name, email, password, type: document.querySelector('input[name="type"]:checked').value };
+    if (first) return false;
+    if (!isDriver()) return { name, email, password, type: document.querySelector('input[name="type"]:checked').value };
+    return { name, email, password, type: 'Хувь хүн', phone,
+      driver: { kind: document.querySelector('input[name="kind"]:checked').value, zone: $('zone').value, vehicle: $('vehicle').value, consent: true } };
   }
 
   $('register-form').addEventListener('submit', async e => {
@@ -177,8 +229,8 @@
     $('submit').disabled = true;
     $('submit').textContent = 'Бүртгэж байна…';
     try {
-      await Auth.register(data);
-      location.replace(Auth.nextUrl());
+      const u = await Auth.register(data);
+      location.replace(u.role === 'driver' ? 'driver.html' : Auth.nextUrl());
     } catch (err) {
       if (err.field && $('f-' + err.field)) { setError('f-' + err.field, err.message); $(err.field).focus(); }
       else formError(err.message);

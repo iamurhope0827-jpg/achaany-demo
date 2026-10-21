@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Миний ачаанууд · Ачааны төв</title>
+<title>Захиалга · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -14,148 +16,122 @@
 <body data-page="orders">
 <div class="main">
   <main class="content">
-    <nav class="crumbs" aria-label="Breadcrumb">
-      <a href="index.html" aria-label="Нүүр"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></a>
-      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
-      <a href="orders.html">Миний ачаанууд</a>
-      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
-      <b id="crumb-current">Хүргэлт</b>
-    </nav>
-
-    <section class="page-head">
+    <section class="title-row">
       <div>
-        <h1>Миний захиалгууд</h1>
+        <h1>Захиалга</h1>
         <p id="page-sub">Хүргэлтийн бүх захиалгаа эндээс удирдаарай</p>
       </div>
       <div class="page-actions">
         <button class="btn btn-secondary" id="export-btn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Татах</span></button>
         <button class="icon-btn" id="refresh-btn" aria-label="Шинэчлэх" title="Шинэчлэх"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3v5.5h-5.5"/></svg></button>
-        <a href="new-order.html" class="btn btn-primary" id="new-link"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Шинэ захиалга</a>
+        <a href="new-order.html" class="btn btn-primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Шинэ захиалга</a>
       </div>
     </section>
 
-    <section class="toolbar">
-      <label class="search">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-        <input type="search" id="order-search" placeholder="Захиалгын дугаар, ачааны нэр, хаягаар хайх…" />
-      </label>
-      <div class="segmented" id="status-filter">
-        <button class="active" data-status="all">Бүгд</button>
-        <button data-status="active">Идэвхтэй</button>
-        <button data-status="done">Хүргэгдсэн</button>
-        <button data-status="cancelled">Цуцлагдсан</button>
-      </div>
+    <!-- count cards are the status filter -->
+    <section class="count-cards" id="status-filter" aria-label="Төлөвөөр шүүх">
+      <button class="count-card active" data-status="all"><span>Бүгд</span><b data-count="all">0</b></button>
+      <button class="count-card" data-status="active"><span>Идэвхтэй</span><b data-count="active">0</b></button>
+      <button class="count-card" data-status="done"><span>Хүргэгдсэн</span><b data-count="done">0</b></button>
+      <button class="count-card" data-status="cancelled"><span>Цуцлагдсан</span><b data-count="cancelled">0</b></button>
     </section>
 
-    <section class="orders" id="orders"><div class="card empty"><p>Ачаалж байна…</p></div></section>
-    <footer class="pager" id="pager"></footer>
+    <!-- list on the left, the selected order on the right -->
+    <section class="split" id="split">
+      <div class="card list-pane">
+        <div class="list-head">
+          <label class="search">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            <input type="search" id="order-search" placeholder="Дугаар, нэр, хаягаар хайх…" />
+          </label>
+        </div>
+        <div class="list-rows" id="orders" role="listbox" aria-label="Захиалгууд"></div>
+        <footer class="pager" id="pager"></footer>
+      </div>
+      <article class="card detail-pane" id="detail" aria-live="polite"></article>
+    </section>
   </main>
 </div>
 
 <script src="app.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="map.js"></script>
 <script>
   const { esc, money, STATUS, icons } = App;
   const params = new URLSearchParams(location.search);
   const state = {
     status: ['active', 'done', 'cancelled'].includes(params.get('status')) ? params.get('status') : 'all',
-    q: params.get('q') || '', page: 1, perPage: 5,
+    q: params.get('q') || '', page: 1, perPage: 8, sel: params.get('open') || null,
   };
   let orders = [];
   const $ = id => document.getElementById(id);
-
+  const wide = () => window.matchMedia('(min-width: 768px)').matches;
   const ico = {
-    box: icons.box,
-    pin: '<svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/></svg>',
-    user: icons.user,
     restore: '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"/><path d="M4 3v5.5h5.5"/></svg>',
-    arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
     prev: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
     next: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
   };
 
   async function load(showToast) {
-    try {
-      orders = (await App.api('/api/orders')).orders || [];
-      if (showToast) App.toast('Жагсаалт шинэчлэгдлээ');
-    } catch (e) { App.toast(e.message, 'error'); }
+    try { orders = (await App.api('/api/orders')).orders || []; if (showToast) App.toast('Жагсаалт шинэчлэгдлээ'); }
+    catch (e) { App.toast(e.message, 'error'); }
     render();
   }
 
-  function filtered() {
-    const q = state.q.trim().toLowerCase();
-    return orders.filter(o =>
-      (state.status === 'all' || STATUS[o.status].group === state.status) &&
-      (!q || [o.no, o.title, o.from, o.to].some(v => String(v || '').toLowerCase().includes(q))));
+  const matches = o => { const q = state.q.trim().toLowerCase(); return !q || [o.no, o.title, o.from, o.to].some(v => String(v || '').toLowerCase().includes(q)); };
+  const filtered = () => orders.filter(o => (state.status === 'all' || STATUS[o.status].group === state.status) && matches(o));
+
+  function renderCounts() {
+    const n = { all: 0, active: 0, done: 0, cancelled: 0 };
+    orders.filter(matches).forEach(o => { n.all++; n[STATUS[o.status].group]++; });
+    document.querySelectorAll('[data-count]').forEach(b => { b.textContent = n[b.dataset.count]; });
+    document.querySelectorAll('#status-filter button').forEach(x => { x.classList.toggle('active', x.dataset.status === state.status); x.setAttribute('aria-pressed', x.dataset.status === state.status); });
   }
 
-  function renderHead() {
-    $('crumb-current').textContent = state.q ? `“${state.q}” хайлт` : 'Хүргэлт';
-    $('page-sub').textContent = state.q ? `“${state.q}” хайлтын үр дүн` : 'Хүргэлтийн бүх захиалгаа эндээс удирдаарай';
-  }
-
-  function orderCard(o) {
+  function row(o) {
     const s = STATUS[o.status];
-    const needs = (o.needs || []).map(n => `<span class="tag">${esc(n)}</span>`).join('');
-    const action = o.status === 'cancelled'
-      ? `<button class="btn btn-secondary" data-restore="${esc(o.no)}">${ico.restore}Сэргээх</button>` : '';
+    const sub = o.status === 'waiting' ? `${o.offers || 0} санал` : (o.date || '').slice(0, 10);
     return `
-      <article class="card order">
-        <div class="order-thumb">${ico.box}</div>
-        <div class="order-main">
-          <div class="order-title"><h3>${esc(o.title)}</h3><span class="order-no">№ ${esc(o.no)}</span></div>
-          <div class="order-line">${ico.pin}<span>${esc(o.from)} → ${esc(o.to)}</span></div>
-          <div class="order-line">${ico.user}<span>Үүсгэсэн: <b>${esc(o.creator || '—')}</b></span></div>
-          <div class="tags"><span class="lbl">Шаардлага:</span>${needs || '<span class="tag">Тодорхойгүй</span>'}${o.urgent ? '<span class="tag accent">Яаралтай</span>' : ''}</div>
-        </div>
-        <div class="order-side">
-          <div class="order-price"><small>Тээврийн үнэ</small><b>${money(o.price)}</b></div>
-          <div class="order-stats"><span>Үзсэн <b>${o.views || 0}</b></span><span>Санал <b>${o.offers || 0}</b></span></div>
-        </div>
-        <div class="order-foot">
-          <span class="chip ${s.chip}">${s.label}</span>
-          <time>${esc(o.date)}</time>
-          <span class="order-stats"><span>Хийгдсэн <b>${o.done || 0}</b></span><span>Нийт <b>${o.total || 1}</b></span></span>
-          <div class="btns">${action}<button class="btn btn-primary" data-open="${esc(o.no)}">Дэлгэрэнгүй ${ico.arrow}</button></div>
-        </div>
-      </article>`;
+      <button class="lrow${o.no === state.sel ? ' selected' : ''}" role="option" aria-selected="${o.no === state.sel}" data-open="${esc(o.no)}">
+        <span class="lrow-main"><b>${esc(o.title)}</b><small>${esc(o.from)} → ${esc(o.to)}</small></span>
+        <span class="lrow-side"><span class="num">${money(o.price)}</span><span class="chip ${s.chip}">${s.label}</span></span>
+        <span class="lrow-foot"><span class="mono">${esc(o.no)}</span><span>${esc(sub)}</span></span>
+      </button>`;
   }
 
   function render() {
-    renderHead();
-    document.querySelectorAll('#status-filter button').forEach(x => x.classList.toggle('active', x.dataset.status === state.status));
+    renderCounts();
+    $('page-sub').textContent = state.q ? `“${state.q}” хайлтын үр дүн` : 'Хүргэлтийн бүх захиалгаа эндээс удирдаарай';
     const list = filtered();
+    if (wide() && (!state.sel || !list.some(o => o.no === state.sel)) && list.length) state.sel = list[0].no;
     const pages = Math.max(1, Math.ceil(list.length / state.perPage));
     state.page = Math.min(state.page, pages);
     const start = (state.page - 1) * state.perPage;
     const items = list.slice(start, start + state.perPage);
 
-    $('orders').innerHTML = items.length ? items.map(orderCard).join('') : `
-      <div class="card empty">
-        <div class="order-thumb">${ico.box}</div>
+    $('orders').innerHTML = items.length ? items.map(row).join('') : `
+      <div class="empty" style="margin:12px">
         <h3>Захиалга олдсонгүй</h3>
         <p>${state.q || state.status !== 'all' ? 'Шүүлтүүрээ өөрчилж үзээрэй.' : 'Одоогоор захиалга алга. Анхны ачаагаа бүртгээрэй.'}</p>
-        ${state.q || state.status !== 'all'
-          ? '<button class="btn btn-secondary" id="clear-filters">Шүүлтүүр арилгах</button>'
-          : '<a href="new-order.html" class="btn btn-primary">Шинэ захиалга</a>'}
+        ${state.q || state.status !== 'all' ? '<button class="btn btn-secondary" id="clear-filters">Шүүлтүүр арилгах</button>' : '<a href="new-order.html" class="btn btn-primary">Шинэ захиалга</a>'}
       </div>`;
     const clear = $('clear-filters');
     if (clear) clear.addEventListener('click', () => { state.q = ''; state.status = 'all'; $('order-search').value = ''; syncUrl(); render(); });
 
     let nums = '';
     for (let p = 1; p <= pages; p++) nums += `<button data-page="${p}" class="${p === state.page ? 'active' : ''}">${p}</button>`;
-    $('pager').innerHTML = `
-      <span><b>${list.length ? start + 1 : 0}–${start + items.length}</b> / ${list.length} захиалга</span>
-      <nav>
-        <button data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''} aria-label="Өмнөх">${ico.prev}</button>
-        ${nums}
-        <button data-page="${state.page + 1}" ${state.page === pages ? 'disabled' : ''} aria-label="Дараах">${ico.next}</button>
-      </nav>`;
+    $('pager').innerHTML = `<span><b>${list.length ? start + 1 : 0}–${start + items.length}</b> / ${list.length}</span>
+      <nav><button data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''} aria-label="Өмнөх">${ico.prev}</button>${nums}
+      <button data-page="${state.page + 1}" ${state.page === pages ? 'disabled' : ''} aria-label="Дараах">${ico.next}</button></nav>`;
+    renderDetail();
   }
 
   function syncUrl() {
     const p = new URLSearchParams();
     if (state.status !== 'all') p.set('status', state.status);
     if (state.q) p.set('q', state.q);
+    if (state.sel && !wide()) p.set('open', state.sel);
     history.replaceState(null, '', 'orders.html' + (p.toString() ? '?' + p : ''));
   }
 
@@ -169,75 +145,138 @@
     } catch (e) { App.toast(e.message, 'error'); return null; }
   }
 
-  // ----- detail modal -----
-  function openDetail(no) {
-    const o = orders.find(x => x.no === no);
-    if (!o) { App.toast('Захиалга олдсонгүй', 'error'); return; }
+  const DRIVER_KIND = { dedicated: 'Үндсэн жолооч', crowd: 'Чөлөөт жолооч' };
+  const SIZE = { small: 'Жижиг', medium: 'Дунд', large: 'Том' };
+
+  // the four stages of a delivery, with the current one marked
+  function stepper(o) {
+    const names = ['Үүссэн', 'Санал', 'Замдаа', 'Хүргэгдсэн'];
+    if (o.status === 'cancelled') return `<div class="stepper cancelled"><span class="chip cancelled">Цуцлагдсан</span><span class="hint">Сэргээвэл дахин санал хүлээнэ</span></div>`;
+    const cur = o.status === 'done' ? 3 : o.status === 'transit' ? 2 : o.offers ? 1 : 0;
+    return `<ol class="stepper" aria-label="Хүргэлтийн шат">${names.map((n, i) =>
+      `<li class="${i < cur ? 'passed' : ''}${i === cur ? ' now' : ''}"${i === cur ? ' aria-current="step"' : ''}><i></i><span>${n}</span></li>`).join('')}</ol>`;
+  }
+
+  // the line over the map: how far, and while on the road how long until the parcel arrives
+  let mapView = null;
+  function showEta(o, i) {
+    const el = $('map-eta');
+    if (!el) return;
+    const dist = `${i.km < 10 ? i.km.toFixed(1) : Math.round(i.km)} км`;
+    let text;
+    if (o.status === 'transit' && i.leg === 'pickup') text = `<b>Жолооч ачааг авахаар ирж байна</b> · ≈ ${i.etaMin} мин`;
+    else if (o.status === 'transit') text = `<b>≈ ${i.etaMin} минутад хүргэгдэнэ</b> · ${dist}`;
+    else if (o.status === 'done') text = `<b>Хүргэгдсэн</b> · ${dist}`;
+    else text = `<b>${dist}</b> · замд ≈ ${Math.max(1, Math.round(i.min))} мин`;
+    const basis = i.traffic ? 'түгжрэлийг тооцсон' : i.source === 'osrm' ? 'замаар, түгжрэлгүй' : 'шулуунаар тооцсон';
+    text += `<small>${o.status === 'transit' ? (i.real ? 'Жолоочийн бодит байршил' : 'Тооцоолсон байршил') + ' · ' : ''}${basis}</small>`;
+    el.innerHTML = text;
+    el.hidden = false;
+  }
+
+  // ----- the detail pane -----
+  function renderDetail() {
+    const o = orders.find(x => x.no === state.sel);
+    $('split').classList.toggle('open', !!o && !wide());
+    if (!o) {
+      mapView = null; $('detail').dataset.key = '';
+      $('detail').innerHTML = `<div class="thread-empty"><h3>Захиалга сонгоно уу</h3><p>Зүүн талын жагсаалтаас захиалга сонгоход дэлгэрэнгүй энд харагдана.</p></div>`;
+      return;
+    }
+    // the same order in the same state: only move the driver on the map, keep everything else
+    const key = [o.no, o.status, o.stage, (o.history || []).length, o.driver].join('|');
+    if ($('detail').dataset.key === key && mapView) { mapView.update(o); return; }
+    $('detail').dataset.key = key;
     const isAdmin = (Auth.current() || {}).role === 'admin';
     const s = STATUS[o.status];
-    const row = (k, v) => `<li><span>${k}</span><b>${v}</b></li>`;
-    const m = App.modal({
-      title: `${o.title} · № ${o.no}`, wide: true,
-      html: `
-        <div class="route-box">
-          <div><i></i><span><small>Ачаа авах</small>${esc(o.from)}</span></div>
-          <div><i></i><span><small>Хүргэх</small>${esc(o.to)}</span></div>
+    const kv = (k, v) => `<li><span>${k}</span><b>${v}</b></li>`;
+    $('detail').innerHTML = `
+      <header class="detail-head">
+        <button class="icon-btn back" id="back-btn" aria-label="Жагсаалт руу буцах">${ico.back}</button>
+        <div><h2>${esc(o.title)}</h2><p><span class="mono">№ ${esc(o.no)}</span> · ${esc(o.date)}</p></div>
+        <span class="chip ${s.chip}">${s.label}</span>
+      </header>
+      <div class="detail-body">
+        ${stepper(o)}
+        ${o.driver && ['transit', 'done'].includes(o.status) ? `
+        <div class="driver-strip">
+          <span class="avatar">${esc(App.initials(o.driverName))}</span>
+          <div><b>${esc(o.driverName)}</b><small>${esc(DRIVER_KIND[o.driverKind] || 'Жолооч')} · ${esc(o.driverVehicle || '')} · ${o.status === 'done' ? 'Хүргэсэн' : o.stage === 'picked' ? 'Ачааг авч хүргэж байна' : 'Ачааг авахаар явж байна'}</small></div>
+          ${o.driverPhone && o.status === 'transit' ? `<a class="btn btn-secondary" href="tel:${esc(o.driverPhone)}">Залгах · ${esc(o.driverPhone)}</a>` : ''}
+        </div>` : ''}
+        <div class="detail-map">
+          <div class="om-box" id="detail-map" role="img" aria-label="Захиалгын чиглэлийн газрын зураг"></div>
+          <div class="map-eta" id="map-eta" hidden></div>
+          <div class="detail-map-legend">
+            <span><i class="lg-start"></i><span><small>Ачаа авах</small>${esc(o.from)}</span></span>
+            <span><i class="lg-pin"></i><span><small>Хүргэх</small>${esc(o.to)}</span></span>
+          </div>
         </div>
-        <div class="detail-grid">
-          <ul class="kv">
-            ${row('Төлөв', `<span class="chip ${s.chip}">${s.label}</span>`)}
-            ${row('Тээврийн үнэ', money(o.price))}
-            ${row('Жин', o.weight ? esc(o.weight) + ' кг' : '—')}
-          </ul>
-          <ul class="kv">
-            ${row('Үүсгэсэн', esc(o.date))}
-            ${row('Авах өдөр', esc(o.pickupDate || 'Тохиролцоно'))}
-            ${row('Шаардлага', esc((o.needs || []).join(', ') || '—') + (o.urgent ? ' · Яаралтай' : ''))}
-            ${row('Санал / Үзсэн', `${o.offers || 0} / ${o.views || 0}`)}
-          </ul>
+        <div class="detail-figures">
+          <div><span>Тээврийн үнэ</span><b class="num">${money(o.price)}</b></div>
+          <div><span>Ирсэн санал</span><b class="num">${o.offers || 0}</b></div>
+          <div><span>Үзсэн</span><b class="num">${o.views || 0}</b></div>
         </div>
-        ${o.note ? `<div class="section-title">Тэмдэглэл</div><p style="color:var(--text-2)">${esc(o.note)}</p>` : ''}
+        <ul class="kv">
+          ${kv('Авах өдөр', esc(o.pickupDate || 'Тохиролцоно'))}
+          ${kv('Шаардлага', esc((o.needs || []).join(', ') || '—') + (o.urgent ? ' · Яаралтай' : ''))}
+          ${kv('Жин', o.weight ? esc(o.weight) + ' кг' : '—')}
+          ${o.size ? kv('Овор', esc(SIZE[o.size] || o.size)) : ''}
+          ${o.fare ? kv('Үнийн задаргаа', `${esc(o.fare.km)} км = ${money(o.fare.distance)} + дуудлага ${money(o.fare.call)}${o.fare.weight ? ` + жин ${money(o.fare.weight)}` : ''} = ${money(o.fare.system)}${o.fare.extra ? ` · нэмсэн +${money(o.fare.extra)}` : ''}`) : ''}
+          ${kv('Үүсгэсэн', esc(o.creator || '—'))}
+        </ul>
+        ${o.note ? `<div class="section-title">Тэмдэглэл</div><p style="color:var(--muted)">${esc(o.note)}</p>` : ''}
         <div class="section-title">Түүх</div>
         <ul class="timeline">${(o.history || []).slice().reverse().map(h => `
           <li class="${h.status === 'cancelled' ? 'alert' : h.status === 'done' ? 'ok' : ''}"><h4>${esc(h.text)}</h4><time>${esc(h.at)}</time></li>`).join('')}</ul>
-        <div class="detail-actions">
-          ${['waiting', 'transit'].includes(o.status) ? '<button class="btn btn-danger" data-act="cancel">Цуцлах</button>' : ''}
-          ${o.status === 'cancelled' ? `<button class="btn btn-secondary" data-act="restore">${ico.restore}Сэргээх</button>` : ''}
-          <a class="btn btn-secondary" href="messages.html">${icons.chat}Жолоочтой чатлах</a>
-          ${isAdmin ? `<span class="grow"></span><label class="hint" for="adm-status">Админ: төлөв</label>
-            <select class="inline-select" id="adm-status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === o.status ? ' selected' : ''}>${v.label}</option>`).join('')}</select>` : ''}
-        </div>`,
-    });
-    const cancelBtn = m.$('[data-act="cancel"]');
+      </div>
+      <footer class="detail-actions">
+        ${['waiting', 'transit'].includes(o.status) ? '<button class="btn btn-danger" data-act="cancel">Цуцлах</button>' : ''}
+        ${o.status === 'cancelled' ? `<button class="btn btn-secondary" data-act="restore">${ico.restore}Сэргээх</button>` : ''}
+        <a class="btn btn-secondary" href="messages.html">${icons.chat}Жолоочтой чатлах</a>
+        ${isAdmin ? `<span class="grow"></span><label class="hint" for="adm-status">Админ: төлөв</label>
+          <select class="inline-select" id="adm-status">${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === o.status ? ' selected' : ''}>${v.label}</option>`).join('')}</select>` : ''}
+      </footer>`;
+
+    // room at the top for the time line laid over the map
+    mapView = OrderMap.order($('detail-map'), o, { pad: [76, 28, 28, 28], onInfo: i => showEta(o, i) });
+
+    const cancelBtn = $('detail').querySelector('[data-act="cancel"]');
     if (cancelBtn) cancelBtn.addEventListener('click', async () => {
       if (cancelBtn.dataset.confirm !== '1') { cancelBtn.dataset.confirm = '1'; cancelBtn.textContent = 'Дахин дарж баталгаажуулна уу'; return; }
-      if (await act(o.no, 'cancel')) { m.close(); App.toast('Захиалга цуцлагдлаа'); }
+      if (await act(o.no, 'cancel')) App.toast('Захиалга цуцлагдлаа');
     });
-    const restoreBtn = m.$('[data-act="restore"]');
-    if (restoreBtn) restoreBtn.addEventListener('click', async () => { if (await act(o.no, 'restore')) { m.close(); App.toast('Захиалга сэргээгдлээ'); } });
-    const sel = m.$('#adm-status');
-    if (sel) sel.addEventListener('change', async () => {
-      if (await act(o.no, 'status', { status: sel.value })) { m.close(); openDetail(o.no); App.toast('Төлөв шинэчлэгдлээ'); }
-    });
+    const restoreBtn = $('detail').querySelector('[data-act="restore"]');
+    if (restoreBtn) restoreBtn.addEventListener('click', async () => { if (await act(o.no, 'restore')) App.toast('Захиалга сэргээгдлээ'); });
+    const sel = $('adm-status');
+    if (sel) sel.addEventListener('change', async () => { if (await act(o.no, 'status', { status: sel.value })) App.toast('Төлөв шинэчлэгдлээ'); });
+    $('back-btn').addEventListener('click', () => { state.sel = null; syncUrl(); render(); });
   }
 
   // ----- events -----
   $('status-filter').addEventListener('click', e => {
     const b = e.target.closest('button[data-status]');
     if (!b) return;
-    state.status = b.dataset.status; state.page = 1; syncUrl(); render();
+    state.status = b.dataset.status; state.page = 1; if (!wide()) state.sel = null; syncUrl(); render();
   });
   $('order-search').addEventListener('input', e => { state.q = e.target.value; state.page = 1; syncUrl(); render(); });
   $('pager').addEventListener('click', e => {
     const b = e.target.closest('button[data-page]');
     if (!b || b.disabled) return;
-    state.page = +b.dataset.page; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    state.page = +b.dataset.page; render();
   });
-  $('orders').addEventListener('click', async e => {
-    const r = e.target.closest('[data-restore]');
-    if (r) { if (await act(r.dataset.restore, 'restore')) App.toast('Захиалга сэргээгдлээ'); return; }
+  $('orders').addEventListener('click', e => {
     const d = e.target.closest('[data-open]');
-    if (d) openDetail(d.dataset.open);
+    if (!d) return;
+    state.sel = d.dataset.open; syncUrl(); render();
+    if (!wide()) window.scrollTo({ top: 0 });
+  });
+  $('orders').addEventListener('keydown', e => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    const rows = [...$('orders').querySelectorAll('.lrow')];
+    const i = rows.findIndex(r => r.dataset.open === state.sel);
+    const next = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    if (next) { e.preventDefault(); state.sel = next.dataset.open; render(); $('orders').querySelector('.lrow.selected')?.focus(); }
   });
   $('refresh-btn').addEventListener('click', () => load(true));
   $('export-btn').addEventListener('click', () => {
@@ -261,11 +300,15 @@
   Auth.ready.then(async u => {
     if (!u) return;
     await load();
-    const open = params.get('open');
-    if (open) {
-      const o = orders.find(x => x.no === open);
-      if (o) openDetail(open);
-      params.delete('open'); syncUrl();
+    // an open order on the road refreshes, so its driver moves on the map
+    setInterval(() => { if (!document.hidden && orders.some(o => o.no === state.sel && o.status === 'transit')) load(); }, 15000);
+    // ?open=NO: show that order (and move to the page that holds it)
+    if (state.sel) {
+      const list = filtered(), i = list.findIndex(o => o.no === state.sel);
+      if (i < 0 && orders.some(o => o.no === state.sel)) { state.status = 'all'; }
+      const idx = filtered().findIndex(o => o.no === state.sel);
+      if (idx >= 0) state.page = Math.floor(idx / state.perPage) + 1;
+      render();
     }
   });
 </script>

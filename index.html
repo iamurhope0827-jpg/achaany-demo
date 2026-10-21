@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ачааны төв</title>
+<title>Нүүр · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -14,164 +16,114 @@
 <body data-page="index">
 <div class="main">
   <main class="content">
-    <!-- Hero -->
-    <section class="hero">
-      <div class="card welcome">
-        <span class="eyebrow"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg><span id="eyebrow-date"></span></span>
-        <h1>Өдрийн мэнд! Өнөөдөр юу <em>илгээх</em> вэ?</h1>
-        <p>Шинэ ачаагаа бүртгээд жолоочдоос үнийн санал аваарай. Бүх захиалгын явц, төлбөр, мэдэгдэл энд нэг дор.</p>
-        <div class="actions">
-          <a href="new-order.html" class="btn btn-primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Шинэ ачаа</a>
-          <a href="orders.html?status=active" class="btn btn-secondary"><svg viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/></svg>Ачаа хянах</a>
+    <!-- Opening band: who, what needs you, the four numbers, and the delivery on the road right now -->
+    <section class="hero-band">
+      <div class="hero-copy">
+        <h1 id="greeting">Нүүр</h1>
+        <p id="finding">Ачаалж байна…</p>
+        <div class="hero-actions">
+          <a href="new-order.html" class="btn btn-light"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Шинэ ачаа бүртгэх</a>
+          <a href="orders.html" class="btn btn-onteal">Бүх захиалга</a>
         </div>
+        <dl class="hero-stats">
+          <div><dt>Идэвхтэй</dt><dd class="num" id="k-active">0</dd></div>
+          <div><dt>Ирсэн санал</dt><dd class="num" id="k-offers">0</dd></div>
+          <div><dt>Хүргэгдсэн</dt><dd class="num" id="k-done">0</dd></div>
+          <div><dt>Хэтэвч</dt><dd class="num" id="k-wallet">0₮</dd></div>
+        </dl>
       </div>
+      <article class="live-card" id="live-card">
+        <header><span class="live-dot" aria-hidden="true"></span><b>Одоо замдаа</b><span class="hint" id="live-count"></span></header>
+        <div class="live-map" id="live-map"></div>
+        <div class="live-info" id="live-info"></div>
+      </article>
+    </section>
 
-      <div class="balance">
-        <div class="balance-top"><span>Миний данс</span><span class="tag-light" id="plan-tag">Багц аваагүй</span></div>
+    <!-- The board: every live order in the column of its stage -->
+    <section class="board" id="board" aria-label="Захиалгын самбар">
+      <div class="lane" data-lane="waiting">
+        <header class="lane-head"><span class="stage-dot waiting"></span><h2>Санал хүлээж буй</h2><b class="num" data-lane-count>0</b></header>
+        <p class="lane-note">Жолоочдын саналаас сонгоод хүргэлтээ эхлүүлнэ</p>
+        <div class="lane-cards"></div>
+      </div>
+      <div class="lane" data-lane="transit">
+        <header class="lane-head"><span class="stage-dot transit"></span><h2>Замдаа</h2><b class="num" data-lane-count>0</b></header>
+        <p class="lane-note">Жолооч ачааг авч хүргэж байна</p>
+        <div class="lane-cards"></div>
+      </div>
+      <div class="lane" data-lane="done">
+        <header class="lane-head"><span class="stage-dot done"></span><h2>Хүргэгдсэн</h2><b class="num" data-lane-count>0</b></header>
+        <p class="lane-note">Сүүлд хүргэгдсэн ачаанууд</p>
+        <div class="lane-cards"></div>
+      </div>
+    </section>
+
+    <section class="grid-3">
+      <article class="card card-pad wallet-mini">
+        <div class="card-head"><div><h2>Хэтэвч</h2><p id="plan-line">Багц аваагүй</p></div><a href="wallet.html" class="btn btn-ghost">Данс</a></div>
         <div class="amount" id="balance">0₮</div>
-        <div class="sub">Ашиглах боломжтой: <b id="balance-sub">0₮</b></div>
-        <div class="balance-actions">
-          <button id="topup-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Нэмэх</button>
-          <a href="wallet.html#transactions" class="balance-link"><svg viewBox="0 0 24 24"><path d="M3 12h18M15 6l6 6-6 6"/></svg>Гүйлгээ</a>
-          <a href="wallet.html#invoices" class="balance-link"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Баримт</a>
+        <div class="actions">
+          <button class="btn btn-secondary" id="topup-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Цэнэглэх</button>
+          <a href="wallet.html#transactions" class="btn btn-ghost">Гүйлгээ</a>
+          <a href="wallet.html#invoices" class="btn btn-ghost">Баримт</a>
         </div>
         <div class="autopay">
-          <span>Ачаа хүргэгдмэгц жолоочид автоматаар төлөх</span>
+          <span>Хүргэгдмэгц жолоочид автоматаар төлөх</span>
           <button class="switch" id="autopay" role="switch" aria-checked="true" aria-label="Автомат төлөлт"></button>
         </div>
-      </div>
-    </section>
+      </article>
 
-    <!-- KPIs -->
-    <section class="kpis">
-      <a href="orders.html?status=active" class="card kpi">
-        <div class="kpi-top"><span class="kpi-label">Идэвхтэй ачаа</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg></span></div>
-        <div class="kpi-value" id="k-active">0</div><span class="kpi-note" id="k-active-note"></span>
-      </a>
-      <a href="orders.html" class="card kpi">
-        <div class="kpi-top"><span class="kpi-label">Нийт захиалга</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span></div>
-        <div class="kpi-value" id="k-total">0</div><span class="kpi-note" id="k-total-note"></span>
-      </a>
-      <a href="orders.html?status=active" class="card kpi">
-        <div class="kpi-top"><span class="kpi-label">Ирсэн санал</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M9 10h6"/></svg></span></div>
-        <div class="kpi-value" id="k-offers">0</div><span class="kpi-note">жолоочдын үнийн санал</span>
-      </a>
-      <a href="wallet.html#transactions" class="card kpi">
-        <div class="kpi-top"><span class="kpi-label">Нийт зарцуулалт</span><span class="kpi-ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/></svg></span></div>
-        <div class="kpi-value" id="k-spent">0₮</div><span class="kpi-note">хүргэгдсэн ачаагаар</span>
-      </a>
-    </section>
+      <article class="card card-pad">
+        <div class="card-head"><div><h2>Долоо хоногт</h2><p><b class="num" id="sum-total" style="color:var(--text)">0</b> ачаа бүртгэсэн, өнөөдрийг тодруулсан</p></div></div>
+        <div class="chart chart-sm" id="chart"></div>
+      </article>
 
-    <!-- Analytics -->
-    <section class="analytics">
-      <div class="card card-pad">
-        <div class="card-head">
-          <div><h2>Долоо хоногийн идэвх</h2><p>Өдөр бүр бүртгэсэн ачааны тоо</p></div>
-          <span class="legend-chip"><i></i>Бүртгэсэн ачаа</span>
-        </div>
-        <div class="chart" id="chart"></div>
-        <div class="chart-foot">
-          <div><b id="sum-total">0</b><span>7 хоногт нийт</span></div>
-          <div><b id="sum-receivers">0</b><span>Хүлээн авагч</span></div>
-          <a href="orders.html" class="btn btn-ghost">Бүх захиалга <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-        </div>
-      </div>
-
-      <div class="card card-pad">
-        <div class="card-head"><div><h2>Өнөөдрийн төлөв</h2><p id="today-sub"></p></div></div>
-        <div class="status-big"><b id="st-active">0</b><span>идэвхтэй ачаа</span></div>
-        <div class="stack" id="stack"></div>
-        <ul class="status-list">
-          <li><i style="background:var(--storm)"></i>Замдаа яваа<b id="st-transit">0</b><small id="st-transit-p">0%</small></li>
-          <li><i style="background:var(--sunset)"></i>Санал хүлээж буй<b id="st-waiting">0</b><small id="st-waiting-p">0%</small></li>
-          <li><i style="background:var(--mist)"></i>Хаагдсан<b id="st-closed">0</b><small id="st-closed-p">0%</small></li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- Recent shipments -->
-    <section class="card card-pad">
-      <div class="card-head">
-        <div><h2>Сүүлийн ачаанууд</h2><p id="recent-sub">Таны хамгийн сүүлд бүртгэсэн ачаанууд</p></div>
-        <div style="display:flex;gap:8px">
-          <div class="menu-wrap">
-            <button class="btn btn-secondary" id="filter-btn" style="height:36px" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span id="filter-label">Шүүх</span></button>
-            <div class="dropdown card" id="filter-menu" hidden>
-              <button data-f="all" class="on">Бүгд</button>
-              <button data-f="active">Идэвхтэй</button>
-              <button data-f="done">Хүргэгдсэн</button>
-              <button data-f="cancelled">Цуцлагдсан</button>
-            </div>
-          </div>
-          <a href="orders.html" class="btn btn-ghost" style="height:36px">Бүгдийг харах</a>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Дугаар</th><th>Чиглэл</th><th>Огноо</th><th>Төлөв</th><th class="price">Үнэ</th></tr></thead>
-          <tbody id="shipments"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Guides + Activity -->
-    <section class="bottom">
-      <div class="card card-pad">
-        <div class="card-head"><div><h2>Заавар</h2><p>Системийг хурдан эзэмших алхам алхмаар заавар</p></div><a href="help.html#guides" class="btn btn-ghost">Бүгд</a></div>
-        <a href="help.html#guide-1" class="guide">
-          <span class="guide-thumb" style="background:var(--storm)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
-          <div><h3>Анхны ачаагаа бүртгэх</h3><p>Хаяг, жин, хэмжээгээ хэрхэн оруулах вэ</p></div>
-          <span class="len">4 алхам</span>
-        </a>
-        <a href="help.html#guide-2" class="guide">
-          <span class="guide-thumb" style="background:var(--sage)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
-          <div><h3>Үнийн санал харьцуулах</h3><p>Жолоочийн үнэлгээ, үнийг хамт харах</p></div>
-          <span class="len">3 алхам</span>
-        </a>
-        <a href="help.html#guide-3" class="guide">
-          <span class="guide-thumb" style="background:var(--mist);color:var(--ink)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
-          <div><h3>Дансаа цэнэглэх</h3><p>Төлбөрийн аргууд ба автомат төлөлт</p></div>
-          <span class="len">3 алхам</span>
-        </a>
-        <a href="help.html#guide-4" class="guide">
-          <span class="guide-thumb" style="background:var(--beige);color:var(--storm)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></span>
-          <div><h3>Ачаагаа хянах</h3><p>Захиалгын төлөв, түүхийг харах</p></div>
-          <span class="len">3 алхам</span>
-        </a>
-      </div>
-
-      <div class="card card-pad">
-        <div class="card-head"><div><h2>Сүүлийн үйл явдал</h2><p>Таны бүртгэлийн шинэчлэлүүд</p></div><button class="btn btn-ghost" id="history-btn">Түүх</button></div>
+      <article class="card card-pad">
+        <div class="card-head"><div><h2>Сүүлийн үйл явдал</h2></div><button class="btn btn-ghost" id="history-btn">Бүгд</button></div>
         <ul class="timeline" id="timeline"></ul>
-      </div>
+      </article>
     </section>
 
     <footer class="footer">
-      <span>© <span id="year"></span> Ачааны төв</span>
+      <span>© <span id="year"></span> Ачааны төв · <a href="help.html">Тусламж</a></span>
       <nav><a href="terms.html#privacy">Нууцлал</a><a href="terms.html#terms">Үйлчилгээний нөхцөл</a><a href="help.html#contact">Холбоо барих</a></nav>
     </footer>
   </main>
 </div>
 
 <script src="app.js"></script>
+<script src="charts.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="map.js"></script>
 <script>
   const $ = id => document.getElementById(id);
-  const { esc, money, STATUS } = App;
+  const { esc, money } = App;
   const days = ['Ня', 'Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя'];
   const now = new Date();
   const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  let orders = [];
-  let filter = 'all';
-
-  $('eyebrow-date').textContent = `${days[now.getDay()]} гараг · ${now.getMonth() + 1}-р сарын ${now.getDate()}`;
-  $('today-sub').textContent = `${now.getMonth() + 1}-р сарын ${now.getDate()}-ны байдлаар`;
+  const LANE_CAP = 4;
+  let orders = [], drivers = {};
   $('year').textContent = now.getFullYear();
+  const part = () => { const h = now.getHours(); return h < 11 ? 'Өглөөний мэнд' : h < 18 ? 'Өдрийн мэнд' : 'Оройн мэнд'; };
+  const ico = {
+    check: '<svg viewBox="0 0 24 24"><path d="M5 12l4 4 10-10"/></svg>',
+    chat: '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>',
+  };
 
-  // ----- wallet card -----
+  function ago(iso) {
+    const m = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
+    if (m < 60) return `${m} мин өмнө`;
+    const h = Math.round(m / 60);
+    return h < 24 ? `${h} цаг өмнө` : `${Math.round(h / 24)} өдөр өмнө`;
+  }
+
   function renderUser(u) {
-    $('balance').textContent = money(u.wallet);
-    $('balance-sub').textContent = money(u.wallet);
-    $('plan-tag').textContent = u.plan ? `${u.plan} багц` : 'Багц аваагүй';
+    $('greeting').textContent = `${part()}, ${u.name.split(/\s+/)[0]}`;
+    const w = u.wallet || 0;
+    $('balance').textContent = money(w);
+    $('balance').classList.toggle('zero', !w);
+    $('k-wallet').textContent = money(w);
+    $('plan-line').textContent = u.plan ? `${u.plan} багц · ${u.planUntil} хүртэл` : 'Гишүүнчлэлийн багц аваагүй';
     const on = u.settings ? u.settings.autopay : true;
     $('autopay').classList.toggle('off', !on);
     $('autopay').setAttribute('aria-checked', on);
@@ -179,119 +131,104 @@
   $('topup-btn').addEventListener('click', () => App.topup(u => { renderUser(u); loadTimeline(); }));
   $('autopay').addEventListener('click', async () => {
     const on = $('autopay').getAttribute('aria-checked') !== 'true';
-    try {
-      const d = await App.api('/api/settings', { autopay: on });
-      Auth.setUser(d.user); renderUser(d.user);
-      App.toast(on ? 'Автомат төлөлт асаалаа' : 'Автомат төлөлт унтраалаа');
-    } catch (e) { App.toast(e.message, 'error'); }
+    try { const d = await App.api('/api/settings', { autopay: on }); Auth.setUser(d.user); renderUser(d.user); App.toast(on ? 'Автомат төлөлт асаалаа' : 'Автомат төлөлт унтраалаа'); }
+    catch (e) { App.toast(e.message, 'error'); }
   });
 
-  // ----- stats -----
-  function renderStats() {
-    const count = s => orders.filter(o => o.status === s).length;
-    const active = count('waiting') + count('transit');
-    const todayStr = ymd(now);
-    const createdToday = orders.filter(o => (o.date || '').startsWith(todayStr)).length;
-    $('k-active').textContent = active;
-    $('k-active-note').textContent = `${count('transit')} замдаа яваа`;
-    $('k-total').textContent = orders.length;
-    $('k-total-note').textContent = createdToday ? `өнөөдөр +${createdToday}` : 'өнөөдөр шинэ алга';
-    $('k-offers').textContent = orders.reduce((s, o) => s + (o.offers || 0), 0);
-    $('k-spent').textContent = money(orders.filter(o => o.status === 'done').reduce((s, o) => s + (o.price || 0), 0));
+  // the delivery on the road right now, on a real map; a refresh only moves its driver
+  let live = { key: null, view: null };
+  function renderLive(transit) {
+    $('live-count').textContent = transit.length > 1 ? `${transit.length}-аас 1` : '';
+    const o = transit[0];
+    const key = o ? [o.no, o.stage, o.driver].join('|') : 'idle';
+    if (key === live.key) { if (o && live.view) live.view.update(o); return; }
+    live.key = key;
+    if (!o) {
+      live.view = null;
+      OrderMap.city($('live-map'));
+      $('live-card').classList.add('idle');
+      $('live-info').innerHTML = `<b>Замдаа ачаа алга</b><small>Жолооч таны ачааг авмагц хаана яваа нь газрын зураг дээр харагдана.</small>`;
+      return;
+    }
+    $('live-card').classList.remove('idle');
+    live.view = OrderMap.order($('live-map'), o, { interactive: false, onInfo: i => {
+      const el = $('live-eta'); if (!el) return;
+      el.textContent = i.leg === 'pickup' ? `Ачаа авахаар ирж байна · ≈ ${i.etaMin} мин` : i.etaMin ? `≈ ${i.etaMin} минутад хүргэгдэнэ` : '';
+    } });
+    const d = drivers[o.no];
+    $('live-info').innerHTML = `
+      <p class="live-eta" id="live-eta"></p>
+      <div class="live-route"><span><small>Авах</small>${esc(o.from)}</span><span><small>Хүргэх</small>${esc(o.to)}</span></div>
+      <div class="live-foot">
+        ${d ? `<span class="who"><span class="avatar">${esc(App.initials(d.name))}</span><span><b>${esc(d.name)}</b><small>${esc(d.sub)}</small></span></span>` : `<span class="who"><span><b>${esc(o.title)}</b><small>${esc(o.no)}</small></span></span>`}
+        <span class="live-links">
+          ${d ? `<a class="btn btn-secondary" href="messages.html#${encodeURIComponent(d.id)}">${ico.chat}Чат</a>` : ''}
+          <a class="btn btn-secondary" href="orders.html?open=${encodeURIComponent(o.no)}">Дэлгэрэнгүй</a>
+        </span>
+      </div>`;
+  }
+  // one card on the board; what it says depends on the stage
+  function boardCard(o) {
+    const link = `orders.html?open=${encodeURIComponent(o.no)}`;
+    let meta;
+    if (o.status === 'waiting') {
+      meta = o.offers ? `<span class="offer-tag">${o.offers} санал</span><span class="needs-you">Сонгох</span>` : '<span>Санал хүлээж байна</span>';
+    } else if (o.status === 'transit') {
+      const d = drivers[o.no];
+      meta = d ? `<span class="who sm"><span class="avatar">${esc(App.initials(d.name))}</span>${esc(d.name)}</span>` : '<span>Жолооч замдаа</span>';
+    } else {
+      meta = `<span class="done-tag">${ico.check}Хүргэгдсэн</span>`;
+    }
+    return `
+      <a class="bcard" href="${link}">
+        <div class="bcard-top"><b>${esc(o.title)}</b><span class="num">${money(o.price)}</span></div>
+        <small>${esc(o.from)} → ${esc(o.to)}</small>
+        <div class="bcard-meta">${meta}<span class="mono">${esc(o.no)}</span></div>
+      </a>`;
+  }
 
-    const transit = count('transit'), waiting = count('waiting'), closed = count('done') + count('cancelled');
-    const total = transit + waiting + closed;
-    const pct = n => (total ? Math.round((n / total) * 100) : 0) + '%';
-    $('st-active').textContent = active;
-    $('st-transit').textContent = transit; $('st-transit-p').textContent = pct(transit);
-    $('st-waiting').textContent = waiting; $('st-waiting-p').textContent = pct(waiting);
-    $('st-closed').textContent = closed; $('st-closed-p').textContent = pct(closed);
-    $('stack').innerHTML = total
-      ? [[transit, 'var(--storm)'], [waiting, 'var(--sunset)'], [closed, 'var(--mist)']].filter(x => x[0]).map(([n, c]) => `<span style="flex:${n};background:${c}"></span>`).join('')
-      : '<span style="flex:1;background:rgba(41,44,42,.08)"></span>';
+  function renderBoard() {
+    const lanes = {
+      waiting: orders.filter(o => o.status === 'waiting').sort((a, b) => (b.offers || 0) - (a.offers || 0)),
+      transit: orders.filter(o => o.status === 'transit'),
+      done: orders.filter(o => o.status === 'done'),
+    };
+    const empty = {
+      waiting: orders.length ? 'Санал хүлээж буй захиалга алга.' : 'Анхны ачаагаа бүртгэхэд энд гарч ирнэ.',
+      transit: 'Замдаа яваа ачаа алга.',
+      done: 'Хүргэгдсэн ачаа одоогоор алга.',
+    };
+    for (const [key, list] of Object.entries(lanes)) {
+      const lane = document.querySelector(`[data-lane="${key}"]`);
+      lane.querySelector('[data-lane-count]').textContent = list.length;
+      const more = list.length - LANE_CAP;
+      lane.querySelector('.lane-cards').innerHTML = (list.length
+        ? list.slice(0, LANE_CAP).map(boardCard).join('')
+        : `<div class="lane-empty">${empty[key]}${key === 'waiting' && !orders.length ? '<br><a href="new-order.html">Шинэ ачаа бүртгэх</a>' : ''}</div>`)
+        + (more > 0 ? `<a class="lane-more" href="orders.html?status=${key === 'done' ? 'done' : 'active'}">Бас ${more} захиалга</a>` : '');
+    }
 
-    // last 7 days
+    const pick = lanes.waiting.filter(o => o.offers);
+    const offers = lanes.waiting.reduce((s, o) => s + (o.offers || 0), 0);
+    $('k-active').textContent = lanes.waiting.length + lanes.transit.length;
+    $('k-offers').textContent = offers;
+    $('k-done').textContent = lanes.done.length;
+    $('finding').textContent = !orders.length ? 'Одоогоор захиалга алга — анхны ачаагаа бүртгээд жолоочдоос үнийн санал аваарай.'
+      : pick.length ? `${pick.length} захиалгад ${offers} санал ирж, таны сонголтыг хүлээж байна${lanes.transit.length ? ` · ${lanes.transit.length} ачаа замдаа` : ''}.`
+      : lanes.transit.length ? `${lanes.transit.length} ачаа замдаа явж байна.` : 'Идэвхтэй хүргэлт алга — бүх захиалга хаагдсан.';
+    renderLive(lanes.transit);
+
     const series = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(now.getDate() - i);
-      series.push({ d, n: orders.filter(o => (o.date || '').startsWith(ymd(d))).length });
-    }
-    drawChart(series);
+    for (let i = 6; i >= 0; i--) { const d = new Date(now); d.setDate(now.getDate() - i); series.push({ d, n: orders.filter(o => (o.date || '').startsWith(ymd(d))).length }); }
+    Charts.bars($('chart'), { labels: series.map(s => `${days[s.d.getDay()]}`), values: series.map(s => s.n), highlight: 6, height: 150, minMax: 4 });
     $('sum-total').textContent = series.reduce((s, x) => s + x.n, 0);
-    $('sum-receivers').textContent = new Set(orders.map(o => o.to)).size;
   }
 
-  function drawChart(series) {
-    const values = series.map(x => x.n);
-    const W = 680, H = 240, padL = 30, padR = 14, padT = 14, padB = 30;
-    const max = Math.max(4, Math.ceil(Math.max(...values) / 4) * 4);
-    const x = i => padL + (i * (W - padL - padR)) / (values.length - 1);
-    const y = v => padT + (1 - v / max) * (H - padT - padB);
-    const pts = values.map((v, i) => [x(i), y(v)]);
-    let line = `M ${pts[0][0]} ${pts[0][1]}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-      line += ` C ${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6}, ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6}, ${p2[0]} ${p2[1]}`;
-    }
-    const area = `${line} L ${x(values.length - 1)} ${H - padB} L ${x(0)} ${H - padB} Z`;
-    let grid = '';
-    for (let g = 0; g <= max; g += max / 4) {
-      grid += `<line class="gridline" x1="${padL}" x2="${W - padR}" y1="${y(g)}" y2="${y(g)}"/><text x="${padL - 10}" y="${y(g) + 4}" text-anchor="end">${g}</text>`;
-    }
-    series.forEach((s, i) => {
-      grid += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle"${i === 6 ? ' style="fill:#292c2a;font-weight:700"' : ''}>${days[s.d.getDay()]} ${s.d.getDate()}</text>`;
-    });
-    const dots = pts.map((p, i) => i === 6
-      ? `<circle cx="${p[0]}" cy="${p[1]}" r="10" fill="#c46b48" opacity=".2"/><circle cx="${p[0]}" cy="${p[1]}" r="5" fill="#c46b48" stroke="#ffffff" stroke-width="2"><title>${values[i]}</title></circle>`
-      : `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#ffffff" stroke="#292c2a" stroke-width="2"><title>${values[i]}</title></circle>`).join('');
-    $('chart').innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c46b48" stop-opacity=".25"/><stop offset="1" stop-color="#c46b48" stop-opacity="0"/></linearGradient></defs>
-        ${grid}<path d="${area}" fill="url(#area)" stroke="none"/><path d="${line}" fill="none" stroke="#292c2a" stroke-width="2.5"/>${dots}
-      </svg>`;
-  }
-
-  // ----- recent table + filter -----
-  const arrow = '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-  function renderTable() {
-    const list = orders.filter(o => filter === 'all' || STATUS[o.status].group === filter).slice(0, 5);
-    $('shipments').innerHTML = list.length ? list.map(o => `
-      <tr class="row-link" data-no="${esc(o.no)}" tabindex="0">
-        <td class="id">#${esc(o.no)}</td>
-        <td class="route"><span>${esc(o.from)} ${arrow} ${esc(o.to)}</span></td>
-        <td class="muted">${esc((o.date || '').slice(5, 10).replace('-', '.'))}</td>
-        <td><span class="chip ${STATUS[o.status].chip}">${STATUS[o.status].label}</span></td>
-        <td class="price">${money(o.price)}</td>
-      </tr>`).join('') : `
-      <tr><td colspan="5"><div class="empty-inline">
-        <b>${orders.length ? 'Энэ шүүлтүүрт ачаа алга' : 'Одоогоор ачаа бүртгээгүй байна'}</b>
-        ${orders.length ? 'Өөр шүүлтүүр сонгоно уу.' : 'Анхны ачаагаа бүртгээд жолоочдоос санал аваарай.'}
-        ${orders.length ? '' : '<br><a href="new-order.html" class="btn btn-primary">Шинэ ачаа бүртгэх</a>'}
-      </div></td></tr>`;
-  }
-  const openRow = tr => { if (tr) location.href = 'orders.html?open=' + encodeURIComponent(tr.dataset.no); };
-  $('shipments').addEventListener('click', e => openRow(e.target.closest('tr[data-no]')));
-  $('shipments').addEventListener('keydown', e => { if (e.key === 'Enter') openRow(e.target.closest('tr[data-no]')); });
-
-  const menu = $('filter-menu');
-  $('filter-btn').addEventListener('click', e => { e.stopPropagation(); menu.hidden = !menu.hidden; $('filter-btn').setAttribute('aria-expanded', !menu.hidden); });
-  document.addEventListener('click', () => { menu.hidden = true; });
-  menu.addEventListener('click', e => {
-    const b = e.target.closest('[data-f]');
-    if (!b) return;
-    filter = b.dataset.f;
-    menu.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === b));
-    $('filter-label').textContent = filter === 'all' ? 'Шүүх' : b.textContent;
-    renderTable();
-  });
-
-  // ----- activity from notifications -----
   async function loadTimeline() {
     const notes = await App.loadNotifications();
     $('timeline').innerHTML = notes.length ? notes.slice(0, 4).map(n => `
-      <li class="${n.kind === 'alert' ? 'alert' : n.kind === 'ok' ? 'ok' : ''}">
-        <h4>${esc(n.title)}</h4><p>${esc(n.text)}</p><time>${esc(n.at)}</time>
-      </li>`).join('') : '<li><h4>Үйл явдал алга</h4><p>Шинэ ачаа бүртгэхэд энд харагдана.</p></li>';
+      <li class="${n.kind === 'ok' ? 'ok' : n.kind === 'alert' ? 'alert' : ''}"><h4>${esc(n.title)}</h4><time>${esc(n.at)}</time></li>`).join('')
+      : '<li><h4>Үйл явдал алга</h4><p>Шинэ ачаа бүртгэхэд энд харагдана.</p></li>';
   }
   $('history-btn').addEventListener('click', e => { e.stopPropagation(); App.openNotifications(); });
 
@@ -299,9 +236,18 @@
     if (!u) return;
     renderUser(u);
     loadTimeline();
-    try { orders = (await App.api('/api/orders')).orders || []; } catch (e) { App.toast(e.message, 'error'); }
-    renderStats();
-    renderTable();
+    try {
+      const [o, c] = await Promise.all([App.api('/api/orders'), App.api('/api/chats').catch(() => ({ chats: [] }))]);
+      orders = o.orders || [];
+      // the driver of each in-transit order comes from its chat
+      (c.chats || []).filter(x => x.kind === 'driver' && x.orderNo).forEach(x => { drivers[x.orderNo] = x; });
+    } catch (e) { App.toast(e.message, 'error'); }
+    renderBoard();
+    // while something is on the road, look again every 20 s so its driver moves
+    setInterval(async () => {
+      if (document.hidden || !orders.some(o => o.status === 'transit')) return;
+      try { orders = (await App.api('/api/orders')).orders || []; renderBoard(); } catch { }
+    }, 20000);
   });
 </script>
 </body>

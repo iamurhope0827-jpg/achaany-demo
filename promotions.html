@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Урамшуулал · Ачааны төв</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 <script src="mock-api.js"></script>
 <script src="auth.js"></script>
@@ -59,7 +60,7 @@
       const d = await App.api('/api/coupons');
       $('coupons').innerHTML = d.coupons.map(c => `
         <article class="card coupon${c.used ? ' used' : ''}">
-          <div class="amt">+${Math.round(c.amount / 1000)}K<br>₮</div>
+          <div class="amt">+${money(c.amount)}</div>
           <div>
             <h3>${esc(c.title)}</h3>
             <p class="hint">Хэтэвчинд ${money(c.amount)} нэмнэ</p>

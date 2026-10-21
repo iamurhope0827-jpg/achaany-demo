@@ -1,5 +1,6 @@
 // Shared app shell + helpers for every signed-in page.
-// Renders the sidebar, top bar and mobile tab bar, and exposes App.* helpers
+// Renders the top bar (brand, four destinations, search, notifications, account menu) and the mobile
+// tab bar, and exposes App.* helpers
 // (api, toast, modal, notifications, wallet top-up). Load after auth.js, before the page script.
 const App = (function () {
   const body = document.body;
@@ -33,71 +34,68 @@ const App = (function () {
     check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>',
     info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
     alert: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>',
+    wheel: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M3.5 10.5c5.5-2 11.5-2 17 0M10.5 13.5L8 20.5M13.5 13.5l2.5 7"/></svg>',
   };
 
-  // ---------- shell ----------
-  const NAV_MAIN = [
-    { id: 'index', href: 'index.html', label: 'Нүүр самбар', icon: I.grid },
-    { id: 'orders', href: 'orders.html', label: 'Миний ачаанууд', icon: I.box },
+  // product mark: a parcel seen from above, its tape forming the route line
+  const MARK = '<svg viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="6" width="20" height="16" rx="2.5"/><path d="M3 11h20M13 6v5"/><path d="M8 16.5h4.5l2-2"/></svg>';
+
+  // ---------- shell: one top bar, no sidebar ----------
+  // Four destinations sit in the bar; everything about the account lives in its menu.
+  const NAV = [
+    { id: 'index', href: 'index.html', label: 'Нүүр' },
+    { id: 'orders', href: 'orders.html', label: 'Захиалга', also: ['new-order'] },
+    { id: 'messages', href: 'messages.html', label: 'Мессеж', badge: 'nav-messages' },
+    { id: 'wallet', href: 'wallet.html', label: 'Данс', also: ['promotions'] },
+  ];
+  // a driver account works from its own board; the customer pages are not in its menu
+  const DRIVER_NAV = [
+    { id: 'driver', href: 'driver.html', label: 'Самбар', icon: I.wheel },
     { id: 'messages', href: 'messages.html', label: 'Мессеж', icon: I.chat, badge: 'nav-messages' },
+    { id: 'wallet', href: 'wallet.html', label: 'Орлого', icon: I.wallet },
   ];
-  const NAV_MORE = [
-    { id: 'wallet', href: 'wallet.html', label: 'Данс ба нэхэмжлэх', icon: I.invoice },
+  const ACCOUNT = [
+    { id: 'profile', href: 'profile.html', label: 'Профайл', icon: I.user },
     { id: 'promotions', href: 'promotions.html', label: 'Урамшуулал', icon: I.ticket },
-  ];
-  const NAV_BOTTOM = [
     { id: 'help', href: 'help.html', label: 'Тусламж', icon: I.help },
     { id: 'settings', href: 'settings.html', label: 'Тохиргоо', icon: I.gear },
   ];
-  const navItem = n => `<li><a href="${n.href}"${n.id === page ? ' class="active"' : ''}>${n.icon}<span>${n.label}</span>${n.badge ? `<em class="count" id="${n.badge}" hidden>0</em>` : ''}</a></li>`;
+  const isHere = n => n.id === page || (n.also || []).includes(page);
 
-  const sidebar = document.createElement('aside');
-  sidebar.className = 'sidebar';
-  sidebar.id = 'sidebar';
-  sidebar.innerHTML = `
-    <a href="index.html" class="brand">
-      <span class="brand-mark">А</span>
-      <div class="brand-text"><b>Ачааны төв</b><small>Тээврийн удирдлагын систем</small></div>
-    </a>
-    <a href="new-order.html" class="new-btn">${I.plus}<span>Шинэ ачаа бүртгэх</span></a>
-    <div class="nav-label">Үндсэн</div>
-    <ul class="nav">${NAV_MAIN.map(navItem).join('')}</ul>
-    <div class="nav-label" style="margin-top:14px">Бусад</div>
-    <ul class="nav">${NAV_MORE.map(navItem).join('')}</ul>
-    <div class="side-bottom">
-      <ul class="nav">${NAV_BOTTOM.map(navItem).join('')}</ul>
-      <div class="side-user clickable${page === 'profile' ? ' active' : ''}" role="link" tabindex="0" title="Профайл">
-        <span class="avatar"></span>
-        <div><b></b><small></small></div>
-        <button class="logout" aria-label="Гарах" title="Гарах">${I.logout}</button>
+  const appbar = document.createElement('header');
+  appbar.className = 'appbar';
+  appbar.innerHTML = `
+    <div class="appbar-inner">
+      <a href="index.html" class="brand" aria-label="Ачааны төв — нүүр">
+        <span class="brand-mark">${MARK}</span><b>Ачааны төв</b>
+      </a>
+      <nav class="appnav" aria-label="Үндсэн цэс">
+        ${NAV.map(n => `<a href="${n.href}"${isHere(n) ? ' class="active" aria-current="page"' : ''}>${n.label}${n.badge ? `<em class="count" id="${n.badge}" hidden>0</em>` : ''}</a>`).join('')}
+      </nav>
+      <form class="search" id="top-search" role="search">
+        ${I.search}
+        <input type="search" name="q" placeholder="Захиалга хайх…" autocomplete="off" aria-label="Захиалга хайх" />
+        <kbd>/</kbd>
+      </form>
+      <div class="top-right">
+        <div class="bell-wrap">
+          <button class="icon-btn" id="bell-btn" aria-label="Мэдэгдэл" aria-expanded="false">${I.bell}<span class="dot" id="bell-dot" hidden></span></button>
+          <div class="notif-panel card" id="notif-panel" hidden></div>
+        </div>
+        <a href="new-order.html" class="btn btn-secondary new-top">${I.plus}<span>Шинэ ачаа</span></a>
+        <div class="menu-wrap">
+          <button class="account-btn${ACCOUNT.some(isHere) ? ' active' : ''}" id="account-btn" aria-haspopup="true" aria-expanded="false" aria-label="Бүртгэлийн цэс">
+            <span class="avatar"></span><span class="account-name"></span>
+          </button>
+          <div class="dropdown card account-menu" id="account-menu" hidden>
+            <div class="account-head"><b></b><small></small></div>
+            ${ACCOUNT.map(n => `<a href="${n.href}"${isHere(n) ? ' class="on"' : ''}>${n.icon}${n.label}</a>`).join('')}
+            <button class="danger" id="logout-btn">${I.logout}Гарах</button>
+          </div>
+        </div>
       </div>
     </div>`;
-  const overlay = document.createElement('div');
-  overlay.className = 'overlay';
-  overlay.id = 'overlay';
-  body.prepend(overlay);
-  body.prepend(sidebar);
-
-  const main = document.querySelector('.main');
-  const topbar = document.createElement('header');
-  topbar.className = 'topbar';
-  topbar.innerHTML = `
-    <button class="icon-btn menu-btn" id="menu-btn" aria-label="Цэс нээх">${I.menu}</button>
-    <button class="icon-btn collapse-btn" id="collapse-btn" aria-label="Цэс хураах">${I.panel}</button>
-    <form class="search" id="top-search" role="search">
-      ${I.search}
-      <input type="search" name="q" placeholder="Ачаа, дугаар, хаягаар хайх…" autocomplete="off" />
-      <kbd>/</kbd>
-    </form>
-    <div class="top-right">
-      <span class="date-chip">${today().replace(/-/g, '.')}</span>
-      <div class="bell-wrap">
-        <button class="icon-btn" id="bell-btn" aria-label="Мэдэгдэл" aria-expanded="false">${I.bell}<span class="dot" id="bell-dot" hidden></span></button>
-        <div class="notif-panel card" id="notif-panel" hidden></div>
-      </div>
-      <a href="new-order.html" class="btn btn-primary">${I.plus}<span>Шинэ ачаа</span></a>
-    </div>`;
-  main.prepend(topbar);
+  body.prepend(appbar);
 
   const bottomNav = document.createElement('nav');
   bottomNav.className = 'bottom-nav';
@@ -110,24 +108,36 @@ const App = (function () {
   ].map(n => `<a href="${n.href}"${n.id === page ? ' class="active"' : ''}>${n.icon}${n.label}</a>`).join('');
   body.appendChild(bottomNav);
 
-  // Sidebar: collapse on desktop/tablet, drawer on mobile
-  const isTablet = () => window.matchMedia('(max-width: 1279px)').matches;
-  document.getElementById('collapse-btn').addEventListener('click', () => body.classList.toggle(isTablet() ? 'expanded' : 'collapsed'));
-  document.getElementById('menu-btn').addEventListener('click', () => body.classList.add('drawer-open'));
-  overlay.addEventListener('click', () => body.classList.remove('drawer-open'));
+  // Account menu
+  const accBtn = document.getElementById('account-btn');
+  const accMenu = document.getElementById('account-menu');
+  const closeAcc = () => { accMenu.hidden = true; accBtn.setAttribute('aria-expanded', 'false'); };
+  accBtn.addEventListener('click', e => { e.stopPropagation(); accMenu.hidden = !accMenu.hidden; accBtn.setAttribute('aria-expanded', String(!accMenu.hidden)); });
+  document.addEventListener('click', e => { if (!accMenu.hidden && !accMenu.contains(e.target)) closeAcc(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAcc(); });
+  document.getElementById('logout-btn').addEventListener('click', () => Auth.logout());
 
-  // User card → profile; logout button
-  const card = sidebar.querySelector('.side-user');
-  card.addEventListener('click', () => { location.href = 'profile.html'; });
-  card.addEventListener('keydown', e => { if (e.key === 'Enter') location.href = 'profile.html'; });
-  card.querySelector('.logout').addEventListener('click', e => { e.stopPropagation(); Auth.logout(); });
+  // a driver gets their board, messages and earnings in the bar; no order search, no "new parcel"
+  let roleApplied = false;
+  function applyDriverShell() {
+    roleApplied = true;
+    appbar.querySelector('.brand').href = 'driver.html';
+    appbar.querySelector('.appnav').innerHTML = DRIVER_NAV.map(n => `<a href="${n.href}"${isHere(n) ? ' class="active" aria-current="page"' : ''}>${n.label}${n.badge ? `<em class="count" id="${n.badge}" hidden>0</em>` : ''}</a>`).join('');
+    appbar.querySelector('.search').remove();
+    appbar.querySelector('.new-top').remove();
+    accMenu.querySelectorAll('a[href="promotions.html"]').forEach(a => a.remove());
+    bottomNav.innerHTML = DRIVER_NAV.concat([{ id: 'profile', href: 'profile.html', label: 'Профайл', icon: I.user }])
+      .map(n => `<a href="${n.href}"${n.id === page ? ' class="active"' : ''}>${n.icon}${n.label}</a>`).join('');
+  }
 
   function setUser(u) {
     if (!u) return;
-    card.querySelector('.avatar').textContent = initials(u.name);
-    card.querySelector('b').textContent = u.name;
-    card.querySelector('small').textContent = u.email;
-    card.title = `${u.name} · ${u.type}`;
+    if (u.role === 'driver' && !roleApplied) applyDriverShell();
+    accBtn.querySelector('.avatar').textContent = initials(u.name);
+    accBtn.querySelector('.account-name').textContent = u.name.split(/\s+/)[0];
+    accMenu.querySelector('.account-head b').textContent = u.name;
+    accMenu.querySelector('.account-head small').textContent = u.email;
+    accBtn.title = `${u.name} · ${u.type}`;
   }
   Auth.ready.then(setUser);
 

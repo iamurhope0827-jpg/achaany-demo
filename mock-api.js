@@ -558,19 +558,5 @@ const MockApi = (function () {
     fail(404, 'Not found');
   }
 
-  // small banner so testers know data stays in their browser
-  if (enabled) document.addEventListener('DOMContentLoaded', () => {
-    const tag = document.createElement('div');
-    tag.className = 'demo-tag';
-    tag.innerHTML = 'Туршилтын хувилбар<span class="demo-long"> · мэдээлэл зөвхөн таны хөтөч дээр хадгалагдана</span> <button type="button">Шинэчлэх</button>';
-    tag.querySelector('button').addEventListener('click', () => {
-      const b = tag.querySelector('button');
-      if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Бүх туршилтын мэдээллийг устгах уу? Дахин дарна уу'; return; }
-      try { localStorage.removeItem(KEY); localStorage.removeItem(SESSION); sessionStorage.removeItem(SESSION); } catch { }
-      location.href = 'login.html';
-    });
-    document.body.appendChild(tag);
-  });
-
   return { enabled, handle };
 })();

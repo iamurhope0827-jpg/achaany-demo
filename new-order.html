@@ -183,7 +183,8 @@
     const km = km1(trip.km), kg = Number($('weight').value) || 0;
     const weightFee = tariff.weight.find(t => kg <= t.upTo).fee, sizeFee = tariff.size[size].fee;
     const distance = Math.round(km * tariff.perKm / 100) * 100;
-    return { km, kg, distance, weightFee, sizeFee, system: distance + tariff.call + weightFee + sizeFee };
+    const door = tariff.door || 0;   // the driver comes in for the item
+    return { km, kg, distance, weightFee, sizeFee, door, system: distance + tariff.call + weightFee + sizeFee + door };
   }
   function renderFare() {
     const prev = fare;
@@ -199,6 +200,7 @@
       line('Хүргэлт:', `Тариф 1км=${fmt(tariff.perKm)}₮`, fare ? `${fare.km}км = ${fmt(fare.distance)}₮` : '—'),
       line('Дуудлага:', 'Хүргэлтийн суурь үнэ', `${fmt(tariff.call)}₮`),
       line('Жин нэмэгдэл:', extra ? `Ачааны жин, овор хэмжээ · ${esc(extra)}` : 'Ачааны жин, овор хэмжээ', fare ? `${fmt(fare.weightFee + fare.sizeFee)}₮` : '—'),
+      ...(tariff.door ? [line('Орж авах:', 'Жолооч дотогш орж ачааг авна', `${fmt(tariff.door)}₮`)] : []),
       line('Бодогдсон үнэ:', 'Системийн тооцоолсон үнэ', fare ? `${fmt(fare.system)}₮` : '—', 'total'),
     ].join('');
     // the price follows the system price; whatever the customer added on top stays on top

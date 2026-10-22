@@ -24,12 +24,8 @@
       : [f('text')];
     return parts.filter(Boolean).join(', ');
   };
-  // how the driver gets the item at the pickup point
-  const PICKUP = {
-    door: { title: 'Жолооч орж авна', text: 'Жолооч дотогш орж ачааг тань дээрээс авна', ico: '<svg viewBox="0 0 24 24"><path d="M5 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17"/><path d="M3 21h16"/><circle cx="13" cy="12" r=".8"/><path d="M19 8v6M17 11l2 3 2-3"/></svg>' },
-    out: { title: 'Би гаргаж өгнө', text: 'Та ачаагаа гадаа гарч жолоочид өгнө', ico: '<svg viewBox="0 0 24 24"><path d="M4 21V6l7-3v18"/><path d="M2 21h20"/><rect x="14" y="12" width="7" height="6" rx="1"/><path d="M14 15h-3"/></svg>' },
-  };
-  const PICKUP_HTML = `<div class="field"><label>Ачааг жолооч авах байдал</label><div class="pickup" role="radiogroup" aria-label="Ачааг жолооч авах байдал">${Object.entries(PICKUP).map(([k, v]) => `<button type="button" role="radio" data-pickup="${k}" aria-checked="${k === 'out'}"><span class="pk-top"><span class="pk-ico">${v.ico}</span><i class="pk-radio"></i></span><b>${v.title}</b><small>${v.text}</small><em data-pk-fee="${k}"></em></button>`).join('')}</div></div>`;
+  // the driver always comes in for the item; its fee is part of every price
+  const PICKUP_HTML = `<div class="door-note"><span class="pk-ico"><svg viewBox="0 0 24 24"><path d="M5 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17"/><path d="M3 21h16"/><circle cx="13" cy="12" r=".8"/><path d="M19 8v6M17 11l2 3 2-3"/></svg></span><span class="grow"><b>Жолооч орж авна</b><small>Жолооч дотогш орж ачааг тань дээрээс авна</small></span><em data-door-fee></em></div>`;
   const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Сайн байна уу' : h < 12 ? 'Өглөөний мэнд' : h < 18 ? 'Өдрийн мэнд' : 'Оройн мэнд'; };
   const fmt = n => Math.round(n).toLocaleString('en-US');
   const killMap = el => { el && el.querySelectorAll('.om').forEach(m => { if (m._om) { m._om.remove(); m._om = null; } }); };
@@ -191,7 +187,7 @@
       $(el, '[data-back]').addEventListener('click', () => Core.pop());
       $(el, '[data-grab]').addEventListener('click', () => $(el, '.panel').classList.toggle('expanded'));
       const form = $(el, 'form');
-      let pickup = 'out';
+      const pickup = 'door';
       let tariff = null, trip = null, want = 0, size = 'small', urgent = false, mode = 'from', placed = { from: false, to: false };
       const roundUp = n => Math.ceil(n / tariff.round) * tariff.round;
       const picker = OrderMap.picker($(el, '[data-map]'), { onChange: ({ from, to, info }) => {
@@ -255,12 +251,6 @@
         return placeText(place[k], v);
       };
       const withPlace = k => { const a = $(el, `[data-in="${k}"]`).value.trim(), d = placeOf(k); return d ? `${a}, ${d}` : a; };
-      $(el, '.pickup').addEventListener('click', e => {
-        const b = e.target.closest('[data-pickup]'); if (!b) return;
-        pickup = b.dataset.pickup;
-        el.querySelectorAll('[data-pickup]').forEach(x => x.setAttribute('aria-checked', String(x === b)));
-        renderFare();
-      });
       setMode('from');
       // selection over typing: the common parcel kinds are one tap
       $(el, '[data-kinds]').addEventListener('click', e => {
@@ -311,7 +301,7 @@
         tariff = d.fare;
         $(el, '[data-sizes]').innerHTML = Object.entries(tariff.size).map(([k, s]) => `<button type="button" data-size="${k}" aria-pressed="${k === size}"><b>${esc(s.label)}</b><small>${esc(s.hint)}</small><em>${s.fee ? '+' + fmt(s.fee) + '₮' : 'Нэмэгдэлгүй'}</em></button>`).join('');
         $(el, '[data-boosts]').innerHTML = tariff.boosts.map(v => `<button type="button" data-add="${v}">+${fmt(v)}₮</button>`).join('') + `<button type="button" data-reset aria-label="Анхны үнэ">${I.close}</button>`;
-        el.querySelectorAll('[data-pk-fee]').forEach(x => { const f = x.dataset.pkFee === 'door' ? (tariff.door || 0) : 0; x.textContent = '+' + fmt(f) + '₮'; x.classList.toggle('free', !f); });
+        if (tariff.door) $(el, '[data-door-fee]').textContent = '+' + fmt(tariff.door) + '₮';
         renderFare();
       }).catch(e => Core.toast(e.message, 'error'));
       $(el, '[data-sizes]').addEventListener('click', e => { const b = e.target.closest('[data-size]'); if (!b) return; size = b.dataset.size; el.querySelectorAll('[data-size]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderFare(); });
@@ -383,7 +373,7 @@
           ${o.driverName ? `<div class="card pad driver-card"><span class="avatar">${esc(initials(o.driverName))}</span><span class="grow"><b>${esc(o.driverName)}</b><br><span class="sm muted">${esc(DRIVER_KIND[o.driverKind] || 'Жолооч')} · ${esc(o.driverVehicle || '')}</span></span>
             ${o.driverPhone && o.status === 'transit' ? `<a class="round-btn" href="tel:${esc(o.driverPhone)}" aria-label="Залгах">${I.phone}</a>` : ''}<button class="round-btn" data-chat aria-label="Чат">${I.chat}</button></div>` : ''}
           <div class="card pad"><div class="route"><span class="pt"><i></i></span><div class="addr"><small>Авах</small><div>${esc(o.from)}</div></div><span class="line"></span><span></span><span class="pt to"><i></i></span><div class="addr"><small>Хүргэх</small><div>${esc(o.to)}</div></div></div></div>
-          <div class="card pad kv"><div><span>Ачаа</span><span>${esc(o.title)}</span></div>${o.pickup ? `<div><span>Ачаа авах</span><span>${o.pickup === 'door' ? 'Жолооч орж авна' : 'Та гаргаж өгнө'}</span></div>` : ''}${o.weight ? `<div><span>Жин</span><span>${esc(o.weight)} кг</span></div>` : ''}${o.urgent ? '<div><span>Яаралтай</span><span>Тийм</span></div>' : ''}${(o.needs || []).length ? `<div><span>Хэрэгсэл</span><span>${esc(o.needs.join(', '))}</span></div>` : ''}${o.note ? `<div><span>Тэмдэглэл</span><span>${esc(o.note)}</span></div>` : ''}</div>
+          <div class="card pad kv"><div><span>Ачаа</span><span>${esc(o.title)}</span></div>${o.pickup === 'door' ? '<div><span>Ачаа авах</span><span>Жолооч орж авна</span></div>' : ''}${o.weight ? `<div><span>Жин</span><span>${esc(o.weight)} кг</span></div>` : ''}${o.urgent ? '<div><span>Яаралтай</span><span>Тийм</span></div>' : ''}${(o.needs || []).length ? `<div><span>Хэрэгсэл</span><span>${esc(o.needs.join(', '))}</span></div>` : ''}${o.note ? `<div><span>Тэмдэглэл</span><span>${esc(o.note)}</span></div>` : ''}</div>
           <div class="card pad kv">${f ? `<div><span>Зай ${esc(f.km)} км</span><span>${fmt(f.distance)}₮</span></div><div><span>Дуудлага</span><span>${fmt(f.call)}₮</span></div>${f.weight ? `<div><span>Жин, овор</span><span>${fmt(f.weight)}₮</span></div>` : ''}${f.door ? `<div><span>Жолооч орж авна</span><span>${fmt(f.door)}₮</span></div>` : ''}${f.extra ? `<div><span>Таны нэмсэн</span><span>+${fmt(f.extra)}₮</span></div>` : ''}` : ''}<div class="total"><span>Нийт</span><span>${money(o.price)}</span></div></div>
           ${o.status === 'waiting' || o.status === 'transit' ? '<button class="btn btn-danger btn-block" data-cancel>Захиалга цуцлах</button>' : ''}
           ${o.status === 'cancelled' ? '<button class="btn btn-secondary btn-block" data-restore>Дахин захиалах</button>' : ''}`;
@@ -471,7 +461,7 @@
               <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
               <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
             </div>
-            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.4</p>
+            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.5</p>
           </div></div>`;
       };
       draw(Core.user() || {}, []);

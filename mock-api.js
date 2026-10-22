@@ -33,14 +33,14 @@ const MockApi = (function () {
   const MAX_ACTIVE = 4;
   // what a delivery costs, as in server.ps1 ($Fare)
   const FARE = {
-    perKm: 2000, call: 5000, round: 500, boosts: [2500, 5000, 7500],
+    perKm: 2000, call: 5000, door: 1000, round: 500, boosts: [2500, 5000, 7500],
     weight: [{ upTo: 10, fee: 0 }, { upTo: 30, fee: 1500 }, { upTo: 100, fee: 4000 }, { upTo: 1000000, fee: 8000 }],
     size: { small: { label: 'Жижиг', hint: 'Бичиг баримт, жижиг илгээмж', fee: 0 }, medium: { label: 'Дунд', hint: 'Хайрцаг, цүнх', fee: 2000 }, large: { label: 'Том', hint: 'Тавилга, гэр ахуйн техник', fee: 5000 } },
   };
   function fareFor(km, weight, size) {
     const w = FARE.weight.find(t => weight <= t.upTo).fee + FARE.size[size].fee;
     const distance = Math.round(km * FARE.perKm / 100) * 100;
-    return { km, perKm: FARE.perKm, distance, call: FARE.call, weight: w, system: distance + FARE.call + w, extra: 0 };
+    return { km, perKm: FARE.perKm, distance, call: FARE.call, weight: w, door: FARE.door, system: distance + FARE.call + w + FARE.door, extra: 0 };
   }
   function kmBetween(a, b) {
     const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
@@ -182,7 +182,7 @@ const MockApi = (function () {
     const active = mine.filter(o => o.status === 'transit').sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)).map(o => {
       const c = findUser(o.owner);
       return { no: o.no, title: o.title, from: o.from, to: o.to, needs: o.needs || [], urgent: !!o.urgent, weight: o.weight, price: o.price, note: o.note, pickupDate: o.pickupDate,
-        stage: o.stage, stageAt: o.stageAt, assignedBy: o.assignedBy, pay: o.pay, customer: o.creator, customerPhone: (c && c.phone) || '', fromLL: o.fromLL, toLL: o.toLL };
+        stage: o.stage, stageAt: o.stageAt, assignedBy: o.assignedBy, pay: o.pay, customer: o.creator, customerPhone: (c && c.phone) || '', fromLL: o.fromLL, toLL: o.toLL, pickup: o.pickup || 'out' };
     });
     const done = mine.filter(o => o.status === 'done').sort((a, b) => (String(a.deliveredAt) < String(b.deliveredAt) ? 1 : -1));
     const today = nowLocal().slice(0, 10);
@@ -372,7 +372,7 @@ const MockApi = (function () {
           fare.extra = price - fare.system;
         }
         const o = { no: newOrderNo(), type: 'delivery', owner: me.email, title, from, to, needs: (b.needs || []).map(trimmed).filter(Boolean).slice(0, 8),
-          urgent: !!b.urgent, weight: Number(b.weight) || 0, price, note: trimmed(b.note), pickupDate: trimmed(b.pickupDate), fromLL, toLL, size, fare, status: 'waiting',
+          urgent: !!b.urgent, weight: Number(b.weight) || 0, price, note: trimmed(b.note), pickupDate: trimmed(b.pickupDate), fromLL, toLL, size, pickup: 'door', fare, status: 'waiting',
           views: 0, offers: 0, done: 0, total: 1, creator: me.name, date: nowLocal(), createdAt: nowIso(), history: [] };
         addHistory(o, 'waiting', 'Захиалга үүслээ');
         d.orders.push(o);

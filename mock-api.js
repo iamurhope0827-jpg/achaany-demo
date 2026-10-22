@@ -99,9 +99,9 @@ const MockApi = (function () {
   function userChats(email) {
     const d = load();
     if (!d.chats.some(c => c.owner === email && c.kind === 'support')) {
-      d.chats.push({ id: 'support-' + id(), owner: email, kind: 'support', name: 'Ачааны төв · Тусламж', sub: 'Тусламжийн баг', phone: '70000000',
+      d.chats.push({ id: 'support-' + id(), owner: email, kind: 'support', name: 'Log22 · Тусламж', sub: 'Тусламжийн баг', phone: '70000000',
         orderNo: '', orderTitle: '', online: true, muted: false, unread: 1, staffUnread: 0,
-        messages: [msg('in', 'Сайн байна уу! Ачааны төвд тавтай морил. Захиалга, төлбөр эсвэл жолоочтой холбоотой асуулт байвал энд бичээрэй.')] });
+        messages: [msg('in', 'Сайн байна уу! Log22-д тавтай морил. Захиалга, төлбөр эсвэл жолоочтой холбоотой асуулт байвал энд бичээрэй.')] });
     }
     return d.chats;
   }

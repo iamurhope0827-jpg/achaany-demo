@@ -66,8 +66,8 @@ const App = (function () {
   appbar.className = 'appbar';
   appbar.innerHTML = `
     <div class="appbar-inner">
-      <a href="index.html" class="brand" aria-label="Ачааны төв — нүүр">
-        <span class="brand-mark">${MARK}</span><b>Ачааны төв</b>
+      <a href="index.html" class="brand" aria-label="Log22 — нүүр">
+        <span class="brand-mark">${MARK}</span><b>Log22</b>
       </a>
       <nav class="appnav" aria-label="Үндсэн цэс">
         ${NAV.map(n => `<a href="${n.href}"${isHere(n) ? ' class="active" aria-current="page"' : ''}>${n.label}${n.badge ? `<em class="count" id="${n.badge}" hidden>0</em>` : ''}</a>`).join('')}

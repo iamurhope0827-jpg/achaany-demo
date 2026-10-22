@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Жолоочийн самбар · Ачааны төв</title>
+<title>Жолоочийн самбар · Log22</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -89,16 +89,54 @@
   // ----- GPS: while online the phone's position goes to the server (every 15 s at most), so the
   // customers whose orders this driver carries see it move on their map
   let myPos = null, lastMapKey = null, gpsState = 'off', watchId = null, lastSent = 0, dutyMap = null;
+  // Inside the Android/iPhone app (Capacitor) the phone keeps sharing in the background, with the system's
+  // "location in use" notification, and fixes go out over native HTTP (a backgrounded WebView is throttled).
+  // In a browser it is the page's own geolocation, while the page is open.
+  const native = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+  const plugin = name => (native ? Capacitor.registerPlugin(name) : null);
+  const BgGeo = plugin('BackgroundGeolocation'), Awake = plugin('KeepAwake'), Notes = plugin('LocalNotifications');
+  let bgId = null, bgStarting = false;
+  function sendFix() {
+    const body = { lat: myPos[0], lng: myPos[1] };
+    const http = native && Capacitor.Plugins && Capacitor.Plugins.CapacitorHttp;
+    if (http) http.post({ url: location.origin + '/api/driver/location', headers: { 'Content-Type': 'application/json' }, data: body }).catch(() => App.api('/api/driver/location', body).catch(() => {}));
+    else App.api('/api/driver/location', body).catch(() => {});
+  }
+  function onFix(lat, lng) {
+    const first = !myPos;
+    myPos = [lat, lng];
+    gpsState = 'on';
+    if (Date.now() - lastSent > 15000) { lastSent = Date.now(); sendFix(); }
+    if (first) render(); else if (dutyMap && dutyMap.setMe) dutyMap.setMe(myPos);   // the marker follows the phone
+  }
+  async function nativeGps(on) {
+    if (!on) {
+      if (bgId) { BgGeo.removeWatcher({ id: bgId }).catch(() => {}); bgId = null; Awake.allowSleep().catch(() => {}); }
+      if (gpsState === 'on') gpsState = 'off';
+      return;
+    }
+    if (bgId || bgStarting || gpsState === 'denied') return;
+    bgStarting = true;
+    try {
+      try { await Notes.requestPermissions(); } catch { }   // Android 13+: needed for the "location in use" notification
+      bgId = await BgGeo.addWatcher({
+        backgroundTitle: 'Log22 — онлайн',
+        backgroundMessage: 'Захиалга хүргэж байх үед таны байршлыг хуваалцаж байна.',
+        requestPermissions: true, stale: false, distanceFilter: 15,
+      }, (loc, err) => {
+        if (err) { if (err.code === 'NOT_AUTHORIZED') { gpsState = 'denied'; bgId = null; render(); } return; }
+        if (loc) onFix(loc.latitude, loc.longitude);
+      });
+      Awake.keepAwake().catch(() => {});
+    } catch { gpsState = 'denied'; render(); }
+    finally { bgStarting = false; }
+  }
   function gps(on) {
+    if (native && BgGeo) { nativeGps(on); return; }
     if (!on) { if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null; if (gpsState === 'on') gpsState = 'off'; return; }
     if (watchId !== null || gpsState === 'denied' || !navigator.geolocation) return;
-    watchId = navigator.geolocation.watchPosition(p => {
-      const first = !myPos;
-      myPos = [p.coords.latitude, p.coords.longitude];
-      gpsState = 'on';
-      if (Date.now() - lastSent > 15000) { lastSent = Date.now(); App.api('/api/driver/location', { lat: myPos[0], lng: myPos[1] }).catch(() => {}); }
-      if (first) render(); else if (dutyMap && dutyMap.setMe) dutyMap.setMe(myPos);   // the marker follows the phone
-    }, () => { gpsState = 'denied'; watchId = null; render(); }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
+    watchId = navigator.geolocation.watchPosition(p => onFix(p.coords.latitude, p.coords.longitude),
+      () => { gpsState = 'denied'; watchId = null; render(); }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
   }
 
   const STAGE = { assigned: { label: 'Авахаар явж буй', next: 'Ачааг авлаа' }, picked: { label: 'Хүргэж буй', next: 'Хүргэлээ' } };

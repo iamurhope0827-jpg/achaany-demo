@@ -232,7 +232,7 @@ const MockApi = (function () {
         { username: 'jolooch2', name: 'Мөнхбат', phone: '99445566', driverKind: 'crowd', zone: 'Баянгол', vehicle: 'Суудлын автомашин' }]) {
         if (d.users.some(u => u.username === t.username)) continue;
         const salt = id();
-        d.users.push(Object.assign({ id: id(), email: t.username + '@achaanytuv.local', type: 'Хувь хүн', role: 'driver', status: 'active', regNo: '',
+        d.users.push(Object.assign({ id: id(), email: t.username + '@log22.local', type: 'Хувь хүн', role: 'driver', status: 'active', regNo: '',
           partnerCode: 'PR' + rnd(10000, 99999), sector: 'Бусад', vatPayer: false, regVerified: false, plan: '', planUntil: '', wallet: 0, managers: [], usedCoupons: [],
           createdAt: nowIso(), lastLogin: '', online: true, salt, hash: await hash('driver123', salt) }, t));
       }
@@ -243,7 +243,7 @@ const MockApi = (function () {
   }
   async function seedAdmin(d) {
     const salt = id();
-    const admin = { id: id(), name: 'Админ', username: 'admin123', email: 'admin123@achaanytuv.local', type: 'Байгууллага', role: 'admin', status: 'active',
+    const admin = { id: id(), name: 'Админ', username: 'admin123', email: 'admin123@log22.local', type: 'Байгууллага', role: 'admin', status: 'active',
       phone: '99119911', regNo: 'АА00000000', partnerCode: 'PR' + rnd(10000, 99999), sector: 'Логистик', vatPayer: true, regVerified: true,
       plan: '', planUntil: '', wallet: 0, managers: [], usedCoupons: [], createdAt: nowIso(), lastLogin: '', salt, hash: await hash('admin123', salt) };
     d.users.push(admin);

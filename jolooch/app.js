@@ -288,7 +288,7 @@
             <button class="row" data-wallet><span class="ico ok">${I.wallet}</span><span class="grow"><span class="b" style="display:block">Дансны үлдэгдэл</span><span class="sub" style="display:block">Хүргэлт бүрийн орлого шууд орно</span></span><b class="num">${money(u.wallet)}</b></button>
             <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
             <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
-          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.2</p></div></div>`;
+          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.3</p></div></div>`;
       }
       draw();
       api('/api/me').then(() => draw()).catch(() => { });

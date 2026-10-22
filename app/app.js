@@ -8,6 +8,20 @@
     cancelled: { label: 'Цуцлагдсан', tag: '', ico: 'close', cls: '' },
   };
   const DRIVER_KIND = { dedicated: 'Үндсэн жолооч', crowd: 'Чөлөөт жолооч' };
+  // the parcel kinds offered as one-tap shortcuts on the home screen
+  const KINDS = [
+    { kind: 'Бичиг баримт', label: 'Баримт', ico: 'doc' },
+    { kind: 'Хүнс', label: 'Хүнс', ico: 'bag' },
+    { kind: 'Цэцэг', label: 'Цэцэг', ico: 'flower' },
+    { kind: 'Тавилга', label: 'Тавилга', ico: 'sofa' },
+  ];
+  const K = {
+    doc: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
+    bag: '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+    flower: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="2.2"/><path d="M12 5.8a2.6 2.6 0 1 1 2.6-2.4M14.2 8a2.6 2.6 0 1 1 1.4 3.6M12 10.2a2.6 2.6 0 1 1-3 2.4M9.8 8a2.6 2.6 0 1 1 .6-3.8"/><path d="M12 12v9M12 17c-2.5 0-4-1.5-4.5-3.5M12 19c2 0 3.5-1 4-3"/></svg>',
+    sofa: '<svg viewBox="0 0 24 24"><path d="M5 11V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 13a2 2 0 0 1 4 0v1h10v-1a2 2 0 0 1 4 0v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M6 18v2M18 18v2"/></svg>',
+  };
+  const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Сайн байна уу' : h < 12 ? 'Өглөөний мэнд' : h < 18 ? 'Өдрийн мэнд' : 'Оройн мэнд'; };
   const fmt = n => Math.round(n).toLocaleString('en-US');
   const killMap = el => { el && el.querySelectorAll('.om').forEach(m => { if (m._om) { m._om.remove(); m._om = null; } }); };
 
@@ -70,14 +84,19 @@
     tab: true, label: 'Нүүр',
     render(el) {
       const u = Core.user() || {};
-      el.innerHTML = `<header class="appbar"><div class="hello"><span class="avatar">${esc(initials(u.name))}</span><span><small>Сайн байна уу,</small><b>${esc((u.name || '').split(/\s+/)[0] || 'Тавтай морил')}</b></span></div>
-          <button class="icon-btn" data-notes aria-label="Мэдэгдэл">${I.bell}<i class="dot-badge" hidden></i></button></header>
-        <div class="scroll"><div class="pad stack">
-          <button class="send-card" data-new><span class="ico">${I.box}</span><span style="flex:1"><b>Хаашаа илгээх вэ?</b><small>Цэгээ газрын зураг дээр сонгоод үнээ шууд харна</small></span>${I.chevron}</button>
+      const first = (u.name || '').split(/\s+/)[0];
+      el.innerHTML = `<header class="appbar home-bar"><div class="hello"><small>${esc(greeting())}</small><b>${first ? esc(first) : 'Тавтай морил'}</b></div>
+          <button class="icon-btn soft" data-notes aria-label="Мэдэгдэл">${I.bell}<i class="dot-badge" hidden></i></button></header>
+        <div class="scroll"><div class="pad stack home">
+          <section class="card where">
+            <button class="where-field" data-new><span class="where-pin">${I.pin}</span><span class="grow"><b>Хаашаа илгээх вэ?</b><small>Хоёр цэгээ газрын зураг дээр сонгоно</small></span>${I.chevron}</button>
+            <div class="kinds" role="group" aria-label="Түгээмэл ачаа">${KINDS.map(k => `<button type="button" data-kind="${esc(k.kind)}"><span class="k-ico">${K[k.ico]}</span><span>${esc(k.label)}</span></button>`).join('')}</div>
+          </section>
           <div data-active class="stack"></div>
-          <div class="card pad wallet-row" data-wallet><span class="ico accent">${I.wallet}</span><span class="grow"><span class="sm muted">Хэтэвч</span><br><b class="num lg" data-balance>${money(u.wallet)}</b></span><button class="btn btn-secondary" data-topup>${I.plus}Цэнэглэх</button></div>
+          <div class="card wallet-row"><span class="ico accent">${I.wallet}</span><span class="grow"><small>Хэтэвч</small><b class="num" data-balance>${money(u.wallet)}</b></span><button class="btn btn-tint btn-sm" data-topup>${I.plus}Цэнэглэх</button></div>
           <div data-recent></div>
         </div></div>`;
+      el.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => Core.push('new', { kind: b.dataset.kind })));
       $(el, '[data-new]').addEventListener('click', () => Core.push('new'));
       $(el, '[data-topup]').addEventListener('click', () => topupSheet(() => load()));
       $(el, '[data-notes]').addEventListener('click', notesSheet);
@@ -94,12 +113,14 @@
           if (box.dataset.keys !== keys) {
             killMap(box); box.dataset.keys = keys;
             box.innerHTML = active.length ? `<div class="section-title">Идэвхтэй хүргэлт</div>` + active.map(o => `
-              <button class="card live-card tap" data-open="${esc(o.no)}" style="text-align:left;width:100%">
+              <button class="card live-card tap" data-open="${esc(o.no)}">
                 <div class="map-box"><div class="om" data-map="${esc(o.no)}"></div></div>
-                <div class="live-body"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="tag ${STATUS[o.status].tag}">${STATUS[o.status].label}</span><span class="sm faint">№ ${esc(o.no)}</span></div>
+                <div class="live-body">
+                  <div class="live-top"><span class="tag ${STATUS[o.status].tag}">${STATUS[o.status].label}</span><span class="cap faint num">№ ${esc(o.no)}</span></div>
                   <div class="eta" data-eta="${esc(o.no)}">${esc(statusLine(o))}</div>
-                  <div class="sm muted">${esc(o.title)} · ${esc(o.from)} → ${esc(o.to)}</div>
-                  ${o.driverName ? `<div class="sm"><b>${esc(o.driverName)}</b> <span class="muted">· ${esc(DRIVER_KIND[o.driverKind] || 'Жолооч')}</span></div>` : ''}</div>
+                  <div class="mini-route"><span><i></i>${esc(o.from)}</span><span><i class="to"></i>${esc(o.to)}</span></div>
+                  ${o.driverName ? `<div class="live-driver"><span class="avatar">${esc(initials(o.driverName))}</span><span class="grow"><b>${esc(o.driverName)}</b><small>${esc(DRIVER_KIND[o.driverKind] || 'Жолооч')}</small></span>${I.chevron}</div>` : ''}
+                </div>
               </button>`).join('') : '';
             active.forEach(o => {
               const m = box.querySelector(`[data-map="${CSS.escape(o.no)}"]`);
@@ -128,7 +149,7 @@
   // ---------- new delivery ----------
   Core.define('new', {
     label: 'Шинэ хүргэлт',
-    render(el) {
+    render(el, params = {}) {
       el.classList.add('new-screen');
       el.innerHTML = `<div class="map-box"><div class="om" data-map></div>
           <div class="map-top"><button class="icon-btn on-map" data-back aria-label="Буцах">${I.back}</button>
@@ -149,7 +170,7 @@
             <button type="button" class="toggle-row" data-urgent aria-pressed="false"><span class="ico warn">${I.bolt}</span><span class="grow"><b>Яаралтай</b><br><span class="sm muted">Жолооч түрүүлж авна</span></span><span class="switch" aria-hidden="true"></span></button>
             <div class="field"><label>Тээврийн хэрэгсэл</label><div class="chips" data-needs>${['Мопед', 'Суудлын автомашин', 'Портер', 'Ачигч'].map(n => `<button type="button" class="chip" data-need="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>
             <div class="field"><label for="n-note">Жолоочид тэмдэглэл</label><div class="input"><textarea id="n-note" maxlength="400" placeholder="Жишээ: 2 давхарт, хэврэг ачаа"></textarea></div></div>
-            <div class="fare" data-field="price"><div style="display:flex;justify-content:space-between;align-items:center"><b>Хүргэлтийн төлбөр</b><span class="sm muted" data-trip></span></div>
+            <div class="fare" data-field="price"><div class="fare-head"><b>Хүргэлтийн төлбөр</b><span class="sm muted" data-trip></span></div>
               <div class="kv sm" data-lines></div>
               <div class="want"><span class="muted sm">Таны санал болгох үнэ</span><b class="num" data-want>—</b></div>
               <div class="boosts" data-boosts></div><span class="err sm" style="color:var(--danger)"></span>
@@ -190,6 +211,7 @@
         el.querySelectorAll('[data-kind]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
         $(el, '#n-title').value = b.dataset.kind; Core.fieldError(form, 'title', ''); validate();
       });
+      if (params.kind) { const pre = el.querySelector(`[data-kind="${CSS.escape(params.kind)}"]`); if (pre) pre.click(); }
       $(el, '#n-title').addEventListener('input', () => { el.querySelectorAll('[data-kind]').forEach(x => x.setAttribute('aria-pressed', 'false')); validate(); });
       $(el, '[data-needs]').addEventListener('click', e => { const b = e.target.closest('[data-need]'); if (b) b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); });
       $(el, '[data-urgent]').addEventListener('click', e => { urgent = !urgent; const b = e.currentTarget; b.setAttribute('aria-pressed', String(urgent)); $(b, '.switch').setAttribute('aria-checked', String(urgent)); });
@@ -390,7 +412,7 @@
               <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
               <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
             </div>
-            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.2</p>
+            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3</p>
           </div></div>`;
       };
       draw(Core.user() || {}, []);

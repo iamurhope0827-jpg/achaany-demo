@@ -8,9 +8,11 @@
 const Core = (() => {
   // where the server address is published; the second entry is the same site if the repo is renamed to "log22"
   const CONFIG_URLS = ['https://iamurhope0827-jpg.github.io/achaany-demo/app-config.json', 'https://iamurhope0827-jpg.github.io/log22/app-config.json'];
+  // each app keeps its own sign-in (on the demo site both apps share one web origin, and so one localStorage)
+  const NS = (document.documentElement.dataset.app || 'app') + ':';
   const store = {
-    get: k => { try { return localStorage.getItem(k); } catch { return null; } },
-    set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { } },
+    get: k => { try { return localStorage.getItem(NS + k); } catch { return null; } },
+    set: (k, v) => { try { v == null ? localStorage.removeItem(NS + k) : localStorage.setItem(NS + k, v); } catch { } },
   };
   const native = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
   let server = store.get('at_server') || '';
@@ -228,7 +230,9 @@ const Core = (() => {
   }
 
   // ---------- start ----------
-  function start({ tabs: t, first, signedOut }) {
+  function start({ tabs: t, first, signedOut, accepts }) {
+    // a stored account of the wrong kind (a customer in the driver app, or the reverse) is signed out
+    if (token && user && accepts && !accepts(user)) setSession(null);
     appEl = document.getElementById('app');
     tabs = t;
     tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Үндсэн цэс');

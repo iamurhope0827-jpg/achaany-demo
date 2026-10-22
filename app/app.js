@@ -413,6 +413,7 @@
       { name: 'messages', label: 'Мессеж', icon: I.chat },
       { name: 'profile', label: 'Профайл', icon: I.user },
     ],
+    accepts: u => u.role !== 'driver',
     first: 'home', signedOut: 'login',
   });
 })();

@@ -320,6 +320,7 @@
       { name: 'earn', label: 'Орлого', icon: I.coins },
       { name: 'me', label: 'Профайл', icon: I.user },
     ],
+    accepts: u => u.role === 'driver',
     first: 'duty', signedOut: 'login',
   });
   if (Core.user() && Core.user().role === 'driver') startPolling();

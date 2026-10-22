@@ -26,9 +26,15 @@
   }
 
   // ---------- location: background on the phone, the page's own while testing in a browser ----------
-  const BgGeo = Core.native ? Capacitor.registerPlugin('BackgroundGeolocation') : null;
-  const Awake = Core.native ? Capacitor.registerPlugin('KeepAwake') : null;
-  const Notes = Core.native ? Capacitor.registerPlugin('LocalNotifications') : null;
+  // native plugins: the bridge exposes them on Capacitor.Plugins (the app ships without @capacitor/core's registerPlugin).
+  // A missing plugin only switches that feature off; it must never stop the app from starting.
+  const plugin = name => {
+    if (!Core.native) return null;
+    try { return (Capacitor.Plugins && Capacitor.Plugins[name]) || (typeof Capacitor.registerPlugin === 'function' ? Capacitor.registerPlugin(name) : null); } catch { return null; }
+  };
+  const BgGeo = plugin('BackgroundGeolocation');
+  const Awake = plugin('KeepAwake');
+  const Notes = plugin('LocalNotifications');
   let myPos = null, gpsState = 'off', watchId = null, bgId = null, starting = false, lastSent = 0;
   const posListeners = new Set();
   function onFix(lat, lng) {
@@ -289,7 +295,7 @@
             <button class="row" data-wallet><span class="ico ok">${I.wallet}</span><span class="grow"><span class="b" style="display:block">Дансны үлдэгдэл</span><span class="sub" style="display:block">Хүргэлт бүрийн орлого шууд орно</span></span><b class="num">${money(u.wallet)}</b></button>
             <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
             <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
-          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.3.2</p></div></div>`;
+          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.3.3</p></div></div>`;
       }
       draw();
       api('/api/me').then(() => draw()).catch(() => { });

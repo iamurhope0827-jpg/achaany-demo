@@ -55,7 +55,7 @@ const OrderMap = (function () {
       if (viaServer()) {
         try {
           const r = (await Auth.api('/api/route', { points })).route;
-          if (r && r.coords && r.coords.length > 1) return { coords: r.coords, km: r.km, min: r.min, road: r.source !== 'straight', source: r.source, traffic: r.source === 'mapbox', typicalMin: r.typicalMin, ownShare: r.ownShare };
+          if (r && r.coords && r.coords.length > 1) return { coords: r.coords, km: r.km, min: r.min, road: r.source !== 'straight', source: r.source, traffic: r.source === 'mapbox', typicalMin: r.typicalMin, ownShare: r.ownShare, congestion: r.congestion };
         } catch { }
       }
       try { const c = JSON.parse(localStorage.getItem('route:' + key)); if (c) return c; } catch { }
@@ -94,7 +94,14 @@ const OrderMap = (function () {
   // the driver comes in from about 1.5 km away; after pickup they move along the road at the router's pace.
   function driverEstimate(o, r) {
     const pos = o.driverPos;
-    if (pos && inService([pos.lat, pos.lng]) && Date.now() - pos.at < 3 * 60e3) return { at: [pos.lat, pos.lng], real: true, leg: o.stage === 'assigned' ? 'pickup' : 'drop' };
+    // the server's live times come from the driver's own plan (traffic, learned model, other stops first);
+    // they are only meaningful when the plan starts from the driver's real position
+    const lv = o.live && o.live.fromGps ? o.live : null;
+    if (pos && inService([pos.lat, pos.lng]) && Date.now() - pos.at < 3 * 60e3) {
+      const leg = o.stage === 'assigned' ? 'pickup' : 'drop';
+      const eta = lv ? (leg === 'pickup' ? lv.pickupMin : lv.dropMin) : null;
+      return { at: [pos.lat, pos.lng], real: true, leg, etaMin: eta != null ? Math.max(1, Math.round(eta)) : undefined, stopsBefore: lv ? lv.stopsBefore : 0 };
+    }
     const t0 = o.stageAt ? Date.parse(o.stageAt) : NaN;
     if (o.stage === 'assigned') {
       const from = fromOf(o), h = hash(o.no + (o.driver || ''));
@@ -104,9 +111,10 @@ const OrderMap = (function () {
       return { at: [start[0] + (from[0] - start[0]) * f, start[1] + (from[1] - start[1]) * f], leg: 'pickup', etaMin: Math.max(1, Math.round(7 * (1 - f))) };
     }
     const dur = Math.max(r.min * 1.25, 5) * 60e3;
-    const f = isNaN(t0) ? 0.45 : Math.min(Math.max((Date.now() - t0) / dur, 0.03), 0.96);
+    let f = isNaN(t0) ? 0.45 : Math.min(Math.max((Date.now() - t0) / dur, 0.03), 0.96);
+    if (lv && lv.dropMin != null && r.min > 0) f = Math.min(Math.max(1 - lv.dropMin / r.min, 0.03), 0.96);
     const a = along(r.coords, f);
-    return { at: a.at, done: a.done, leg: 'drop', etaMin: Math.max(1, Math.round((dur / 60e3) * (1 - f))) };
+    return { at: a.at, done: a.done, leg: 'drop', etaMin: Math.max(1, Math.round(lv && lv.dropMin != null ? lv.dropMin : (dur / 60e3) * (1 - f))) };
   }
 
   // ---------- drawing ----------
@@ -127,6 +135,29 @@ const OrderMap = (function () {
     if (window.ResizeObserver) new ResizeObserver(() => { map.invalidateSize(); if (map._omFit && !map._omTouched) fit(map, ...map._omFit); }).observe(el);
     return map;
   }
+  // ---------- traffic ----------
+  // With Mapbox, every segment of a route has a congestion level; the route is drawn in those colours
+  // (runs of the same level joined into one line) with a small key in the corner.
+  const TRAFFIC = { low: '#1f9d55', moderate: '#f0a020', heavy: '#e4572e', severe: '#a61b1b' };
+  function trafficLayer(map, coords, congestion) {
+    if (!congestion || !congestion.length || coords.length < 2) return null;
+    const g = L.layerGroup();
+    let start = 0;
+    for (let i = 1; i <= congestion.length; i++) {
+      if (i < congestion.length && congestion[i] === congestion[start]) continue;
+      const color = TRAFFIC[congestion[start]];
+      if (color) L.polyline(coords.slice(start, i + 1), { color, weight: 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(g);
+      start = i;
+    }
+    g.addTo(map);
+    if (!map._omKey) {
+      const key = L.control({ position: 'bottomleft' });
+      key.onAdd = () => { const d = L.DomUtil.create('div', 'om-key'); d.innerHTML = '<span><i style="background:' + TRAFFIC.low + '"></i>Чөлөөтэй</span><span><i style="background:' + TRAFFIC.moderate + '"></i>Дунд</span><span><i style="background:' + TRAFFIC.heavy + '"></i>Түгжрэлтэй</span>'; return d; };
+      key.addTo(map); map._omKey = key;
+    }
+    return g;
+  }
+
   // pad: [top, right, bottom, left] in px, room for whatever is laid over the map
   function fit(map, pts, pad = [36, 36, 36, 36]) {
     map._omFit = [pts, pad];
@@ -158,18 +189,25 @@ const OrderMap = (function () {
       }
       const est = driverEstimate(cur, r);
       if (est.done) { if (done) done.setLatLngs(est.done); else done = L.polyline(est.done, { color: accent, weight: 5, opacity: 0.95, lineCap: 'round' }).addTo(map); }
-      if (est.leg === 'pickup') { const pts = [est.at, from]; if (lead) lead.setLatLngs(pts); else lead = L.polyline(pts, { color: accent, weight: 3, opacity: 0.8, dashArray: '1 7', lineCap: 'round' }).addTo(map); }
+      if (est.leg === 'pickup') {
+        // on its way to the pickup: dotted straight line for an estimate; the road itself when the driver's GPS is known
+        const pts = [est.at, from];
+        if (lead) lead.setLatLngs(pts); else lead = L.polyline(pts, { color: accent, weight: 3, opacity: 0.8, dashArray: '1 7', lineCap: 'round' }).addTo(map);
+        if (est.real) route([est.at.map(n => +n.toFixed(4)), from]).then(a => { if (lead && el._om === map && a.road) { lead.setLatLngs(a.coords); lead.setStyle({ dashArray: '6 6' }); } });
+      }
       else if (lead) { lead.remove(); lead = null; }
       if (car) car.setLatLng(est.at);
       else car = L.marker(est.at, { icon: icon('om-car', '<i></i>', 34), zIndexOffset: 500, keyboard: false }).addTo(map);
       car.bindTooltip(`${cur.driverName || 'Жолооч'}${est.real ? ' · бодит байршил' : ' · тооцоолсон байршил'}`);
-      onInfo && onInfo({ km: r.km, min: r.min, road: r.road, source: r.source, traffic: r.traffic, leg: est.leg, etaMin: est.etaMin, real: !!est.real });
+      onInfo && onInfo({ km: r.km, min: r.min, road: r.road, source: r.source, traffic: r.traffic, leg: est.leg, etaMin: est.etaMin, real: !!est.real, stopsBefore: est.stopsBefore || 0 });
     }
     route([from, to]).then(res => {
       if (el._om !== map) return;
       r = res;
       line.setLatLngs(res.coords);
       line.setStyle({ dashArray: null, opacity: live ? 0.3 : 0.45 });
+      // traffic colours on the road still ahead (a delivered or cancelled order has no traffic to show)
+      if (o.status === 'waiting' || o.status === 'transit') trafficLayer(map, res.coords, res.congestion);
       place(o);
       // the driver may still be on the way to the pickup, outside the route: keep them in view too
       framed(car ? res.coords.concat([[car.getLatLng().lat, car.getLatLng().lng]]) : res.coords);
@@ -193,10 +231,16 @@ const OrderMap = (function () {
     list.forEach((s, i) => L.marker(s.ll, { icon: icon('om-stop' + (i === 0 ? ' next' : '') + (s.kind === 'to' ? ' drop' : ''), `<b>${i + 1}</b>`, 26), keyboard: false })
       .addTo(map).bindTooltip(`${i + 1}. ${s.kind === 'from' ? 'Авах' : 'Хүргэх'} · № ${s.o.no}<br>${s.kind === 'from' ? s.o.from : s.o.to}`));
     const pts = (me && inService(me) ? [me] : []).concat(list.map(s => s.ll));
-    if (me && inService(me)) L.marker(me, { icon: icon('om-car', '<i></i>', 34), zIndexOffset: 500 }).addTo(map).bindTooltip('Таны байршил');
+    let meMarker = null;
+    if (me && inService(me)) meMarker = L.marker(me, { icon: icon('om-car', '<i></i>', 34), zIndexOffset: 500 }).addTo(map).bindTooltip('Таны байршил');
     fit(map, pts);
-    if (pts.length > 1) route(pts).then(res => { if (el._om === map) L.polyline(res.coords, { color: accent, weight: 4, opacity: 0.6, lineCap: 'round' }).addTo(map); });
-    return { map };
+    if (pts.length > 1) route(pts).then(res => {
+      if (el._om !== map) return;
+      L.polyline(res.coords, { color: accent, weight: 4, opacity: 0.6, lineCap: 'round' }).addTo(map);
+      trafficLayer(map, res.coords, res.congestion);
+    });
+    // the driver's own position moves without rebuilding the map
+    return { map, setMe: ll => { if (!ll || !inService(ll)) return; if (meMarker) meMarker.setLatLng(ll); else meMarker = L.marker(ll, { icon: icon('om-car', '<i></i>', 34), zIndexOffset: 500 }).addTo(map).bindTooltip('Таны байршил'); } };
   }
 
   function city(el, existing) {
@@ -215,13 +259,16 @@ const OrderMap = (function () {
     let active = 'from';
     let line = null;
     const accent = css('--accent') || '#8a3d8f';
+    let traffic = null;
     async function redraw() {
       if (line) { line.remove(); line = null; }
+      if (traffic) { traffic.remove(); traffic = null; }
       let info = null;
       if (pts.from && pts.to) {
         const r = await route([pts.from, pts.to]);
         if (!pts.from || !pts.to) return;
         line = L.polyline(r.coords, { color: accent, weight: 4, opacity: 0.7, lineCap: 'round' }).addTo(map);
+        traffic = trafficLayer(map, r.coords, r.congestion);
         info = { km: r.km, min: r.min, road: r.road, source: r.source, traffic: r.traffic };
       }
       onChange && onChange({ from: pts.from, to: pts.to, info });

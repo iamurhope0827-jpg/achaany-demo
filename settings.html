@@ -191,6 +191,8 @@
       kv('Дундаж алдаа: үйлчилгээ / манай загвар', m.maeProvider == null ? '—' : `${m.maeProvider} / ${m.maeModel} мин`),
       kv('Жолоочийн GPS цэг', `${f.fixes}`),
       kv('Хурдны дээж / гудамжны нүд', `${f.samples} / ${f.cells}`),
+      kv('Ачаа авах дундаж хүлээлт', t.pickups ? `${t.pickups.cityMin} мин · ${t.pickups.learned} бүртгэлээс${t.pickups.learned ? '' : ' (анхдагч)'}` : '—'),
+      ...(t.pickups && t.pickups.districts.length ? t.pickups.districts.map(x => kv(`  · ${App.esc(x.district)}`, `${x.min} мин (${x.n})`)) : []),
     ].join('');
     $('model-bands').innerHTML = Object.values(m.bands).map(b => `
       <div class="ta-band"><span>${App.esc(b.label)}</span><b>× ${b.factor.toFixed(2)}</b><small>${b.n} хүргэлт</small></div>`).join('');

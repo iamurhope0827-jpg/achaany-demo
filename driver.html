@@ -88,7 +88,7 @@
 
   // ----- GPS: while online the phone's position goes to the server (every 15 s at most), so the
   // customers whose orders this driver carries see it move on their map
-  let myPos = null, lastMapKey = null, gpsState = 'off', watchId = null, lastSent = 0;
+  let myPos = null, lastMapKey = null, gpsState = 'off', watchId = null, lastSent = 0, dutyMap = null;
   function gps(on) {
     if (!on) { if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null; if (gpsState === 'on') gpsState = 'off'; return; }
     if (watchId !== null || gpsState === 'denied' || !navigator.geolocation) return;
@@ -97,7 +97,7 @@
       myPos = [p.coords.latitude, p.coords.longitude];
       gpsState = 'on';
       if (Date.now() - lastSent > 15000) { lastSent = Date.now(); App.api('/api/driver/location', { lat: myPos[0], lng: myPos[1] }).catch(() => {}); }
-      if (first) render();
+      if (first) render(); else if (dutyMap && dutyMap.setMe) dutyMap.setMe(myPos);   // the marker follows the phone
     }, () => { gpsState = 'denied'; watchId = null; render(); }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
   }
 
@@ -109,7 +109,7 @@
   // the server's plan (shortest valid order on traffic times) when there is one
   function stopsOf(active, plan) {
     const byNo = Object.fromEntries(active.map(o => [o.no, o]));
-    if (plan && plan.stops && plan.stops.every(s => byNo[s.no])) return plan.stops.map(s => ({ kind: s.kind, o: byNo[s.no], eta: s.etaMin }));
+    if (plan && plan.stops && plan.stops.every(s => byNo[s.no])) return plan.stops.map(s => ({ kind: s.kind, o: byNo[s.no], eta: s.etaMin, wait: s.waitMin }));
     const s = [];
     active.filter(o => o.stage === 'assigned').forEach(o => s.push({ kind: 'from', o }));
     active.forEach(o => s.push({ kind: 'to', o }));
@@ -137,12 +137,12 @@
     if (mapKey !== lastMapKey) {
       lastMapKey = mapKey;
       $('duty').classList.toggle('om-off', !on);
-      OrderMap.stops($('duty-map'), d.active, { me: myPos, plan: d.plan });
+      dutyMap = OrderMap.stops($('duty-map'), d.active, { me: myPos, plan: d.plan });
     }
     const stops = stopsOf(d.active, d.plan);
     $('plan-note').textContent = d.plan ? `Нийт ≈ ${Math.round(d.plan.totalMin)} мин · ${d.plan.source === 'mapbox' ? 'түгжрэлийг тооцсон' : 'зайгаар тооцсон'}${d.plan.fromGps ? ' · таны байршлаас' : ''}` : '';
     $('stops').innerHTML = stops.length ? stops.map((s, i) => `
-      <li class="${i === 0 ? 'next' : ''}"><i>${i + 1}</i><span><small>${s.kind === 'from' ? 'Авах' : 'Хүргэх'} · № ${esc(s.o.no)}${s.eta != null ? ` · ≈ ${Math.max(1, Math.round(s.eta))} мин` : ''}</small>${esc(s.kind === 'from' ? s.o.from : s.o.to)}</span></li>`).join('')
+      <li class="${i === 0 ? 'next' : ''}"><i>${i + 1}</i><span><small>${s.kind === 'from' ? 'Авах' : 'Хүргэх'} · № ${esc(s.o.no)}${s.eta != null ? ` · ≈ ${Math.max(1, Math.round(s.eta))} мин` : ''}${s.kind === 'from' && s.wait ? ` · хүлээлт ≈ ${Math.round(s.wait)} мин` : ''}</small>${esc(s.kind === 'from' ? s.o.from : s.o.to)}</span></li>`).join('')
       : `<li class="none">${!on ? 'Онлайн болсон үед захиалга авна.' : dedicated ? `${esc(d.driver.zone)} дүүрэгт шинэ захиалга орж ирмэгц танд автоматаар оноогдоно.` : 'Нээлттэй захиалгаас сонгож аваарай.'}</li>`;
   }
 

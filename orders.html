@@ -168,7 +168,8 @@
     else if (o.status === 'transit') text = `<b>≈ ${i.etaMin} минутад хүргэгдэнэ</b> · ${dist}`;
     else if (o.status === 'done') text = `<b>Хүргэгдсэн</b> · ${dist}`;
     else text = `<b>${dist}</b> · замд ≈ ${Math.max(1, Math.round(i.min))} мин`;
-    const basis = i.traffic ? 'түгжрэлийг тооцсон' : i.source === 'osrm' ? 'замаар, түгжрэлгүй' : 'шулуунаар тооцсон';
+    const basis = (i.traffic ? 'түгжрэлийг тооцсон' : i.source === 'osrm' ? 'замаар, түгжрэлгүй' : 'шулуунаар тооцсон')
+      + (o.status === 'transit' && i.stopsBefore ? ` · жолооч өмнө нь ${i.stopsBefore} зогсоол хийнэ` : '');
     text += `<small>${o.status === 'transit' ? (i.real ? 'Жолоочийн бодит байршил' : 'Тооцоолсон байршил') + ' · ' : ''}${basis}</small>`;
     el.innerHTML = text;
     el.hidden = false;

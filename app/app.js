@@ -8,6 +8,22 @@
     cancelled: { label: 'Цуцлагдсан', tag: '', ico: 'close', cls: '' },
   };
   const DRIVER_KIND = { dedicated: 'Үндсэн жолооч', crowd: 'Чөлөөт жолооч' };
+  // what kind of place a point is, optional; each kind asks only for the details a driver needs to find the door
+  const PLACES = {
+    flat: { label: 'Байр', fields: [['bldg', 'Байр', '5'], ['entr', 'Орц', '2'], ['floor', 'Давхар', '3'], ['door', 'Тоот', '45']] },
+    office: { label: 'Оффис', fields: [['org', 'Байгууллага', 'Компанийн нэр', 2], ['floor', 'Давхар', '7'], ['door', 'Тоот', '702']] },
+    house: { label: 'Хашаа', fields: [['door', 'Хашааны тоот', '17', 2], ['street', 'Гудамж', '3-р гудамж', 2]] },
+    other: { label: 'Бусад', fields: [['text', 'Тайлбар', 'Жишээ: Их дэлгүүрийн хойд хаалга', 4]] },
+  };
+  // the details as words added to the address, e.g. "5-р байр, 2-р орц, 3 давхар, 45 тоот"
+  const placeText = (type, v) => {
+    const f = k => (v[k] || '').trim();
+    const parts = type === 'flat' ? [f('bldg') && f('bldg') + '-р байр', f('entr') && f('entr') + '-р орц', f('floor') && f('floor') + ' давхар', f('door') && f('door') + ' тоот']
+      : type === 'office' ? [f('org'), f('floor') && f('floor') + ' давхар', f('door') && f('door') + ' тоот']
+      : type === 'house' ? [f('street'), f('door') && f('door') + ' тоот хашаа']
+      : [f('text')];
+    return parts.filter(Boolean).join(', ');
+  };
   const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Сайн байна уу' : h < 12 ? 'Өглөөний мэнд' : h < 18 ? 'Өдрийн мэнд' : 'Оройн мэнд'; };
   const fmt = n => Math.round(n).toLocaleString('en-US');
   const killMap = el => { el && el.querySelectorAll('.om').forEach(m => { if (m._om) { m._om.remove(); m._om = null; } }); };
@@ -148,6 +164,9 @@
               <span class="vline"></span><span></span>
               <span class="dot to"></span><div class="input" data-addr="to"><input data-in="to" placeholder="Хүргэх хаяг" autocomplete="off" /></div>
             </div>
+            ${['from', 'to'].map(k => `<div class="place" data-place="${k}"><div class="place-head"><span>${k === 'from' ? 'Авах газар' : 'Хүргэх газар'}</span><small>заавал биш</small></div>
+              <div class="chips">${Object.entries(PLACES).map(([t, p]) => `<button type="button" class="chip" data-ptype="${t}" aria-pressed="false">${p.label}</button>`).join('')}</div>
+              <div class="place-detail" hidden></div></div>`).join('')}
             <div class="field" data-field="title"><label for="n-title">Юу илгээх вэ?</label>
               <div class="chips" data-kinds>${['Бичиг баримт', 'Хүнс', 'Цэцэг', 'Хувцас', 'Электрон бараа', 'Тавилга'].map(k => `<button type="button" class="chip" data-kind="${k}" aria-pressed="false">${k}</button>`).join('')}</div>
               <div class="input"><input id="n-title" maxlength="80" placeholder="Эсвэл өөрөө бичнэ үү" /></div><span class="err"></span></div>
@@ -209,6 +228,26 @@
         if (!inp.value.trim()) { const a = await OrderMap.addressAt(ll); if (a && !inp.value.trim()) { inp.value = a; validate(); } }
         validate();
       }
+      // optional place kind and its details, for both points
+      const place = { from: null, to: null };
+      el.querySelectorAll('[data-place]').forEach(box => {
+        const k = box.dataset.place, detail = $(box, '.place-detail');
+        box.addEventListener('click', e => {
+          const b = e.target.closest('[data-ptype]'); if (!b) return;
+          const t = place[k] === b.dataset.ptype ? null : b.dataset.ptype;   // tapping the chosen kind again clears it
+          place[k] = t;
+          box.querySelectorAll('[data-ptype]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.ptype === t)));
+          detail.hidden = !t;
+          detail.innerHTML = t ? PLACES[t].fields.map(([n, label, ph, span]) => `<label class="pd" style="grid-column:span ${span || 1}"><small>${label}</small><input data-pf="${n}" placeholder="${esc(ph)}" maxlength="60" autocomplete="off" ${['bldg', 'entr', 'floor'].includes(n) ? 'inputmode="numeric"' : ''} /></label>`).join('') : '';
+          if (t) { const f = detail.querySelector('input'); if (f) f.focus({ preventScroll: true }); }
+        });
+      });
+      const placeOf = k => {
+        if (!place[k]) return '';
+        const v = {}; el.querySelectorAll(`[data-place="${k}"] [data-pf]`).forEach(i => { v[i.dataset.pf] = i.value; });
+        return placeText(place[k], v);
+      };
+      const withPlace = k => { const a = $(el, `[data-in="${k}"]`).value.trim(), d = placeOf(k); return d ? `${a}, ${d}` : a; };
       setMode('from');
       // selection over typing: the common parcel kinds are one tap
       $(el, '[data-kinds]').addEventListener('click', e => {
@@ -263,7 +302,7 @@
       $(el, '[data-sizes]').addEventListener('click', e => { const b = e.target.closest('[data-size]'); if (!b) return; size = b.dataset.size; el.querySelectorAll('[data-size]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderFare(); });
       $(el, '[data-submit]').addEventListener('click', async e => {
         const btn = e.currentTarget; const ll = picker.get();
-        const body = { type: 'delivery', title: $(el, '#n-title').value.trim(), from: $(el, '[data-in="from"]').value.trim(), to: $(el, '[data-in="to"]').value.trim(),
+        const body = { type: 'delivery', title: $(el, '#n-title').value.trim(), from: withPlace('from'), to: withPlace('to'), fromPlace: place.from, toPlace: place.to,
           fromLL: ll.from, toLL: ll.to, km: lastSys ? lastSys.km : null, size, weight: $(el, '#n-weight').value.trim(), price: want, urgent,
           needs: [...el.querySelectorAll('[data-need][aria-pressed="true"]')].map(b => b.dataset.need), note: $(el, '#n-note').value.trim(),
           pickupDate: Core.today() };
@@ -417,7 +456,7 @@
               <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
               <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
             </div>
-            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.2</p>
+            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.3</p>
           </div></div>`;
       };
       draw(Core.user() || {}, []);

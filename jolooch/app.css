@@ -72,3 +72,11 @@
 .check-row[aria-checked="true"] .box { background: var(--accent); box-shadow: none; }
 .check-row[aria-checked="true"] .box svg { opacity: 1; }
 .check-row span:last-child { font-size: var(--fs-small); color: var(--muted); }
+
+/* how this pickup works: the driver goes in, or the customer brings the item out */
+.handoff { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--raised); }
+.handoff svg { width: 20px; height: 20px; color: var(--muted); margin-top: 1px; }
+.handoff b { display: block; font-size: var(--fs-small); font-weight: 600; }
+.handoff small { display: block; font-size: var(--fs-cap); color: var(--muted); line-height: 1.4; }
+.handoff.door { background: var(--accent-tint); }
+.handoff.door svg, .handoff.door b { color: var(--accent-ink); }

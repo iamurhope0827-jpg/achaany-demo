@@ -127,3 +127,19 @@
 .pd input::placeholder { color: #a3a8b1; }
 .place .chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .place .chip { justify-content: center; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* how the driver gets the item: two cards, like radio buttons */
+.pickup { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pickup button { position: relative; display: grid; align-content: start; gap: 4px; padding: 12px 12px 32px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); text-align: left; min-width: 0; transition: box-shadow 120ms, background 120ms; }
+.pickup button[aria-checked="true"] { background: var(--accent-tint); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.pk-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+.pk-ico { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--raised); color: var(--text); }
+.pk-ico svg { width: 20px; height: 20px; }
+.pickup button[aria-checked="true"] .pk-ico { background: var(--surface); color: var(--accent-ink); }
+.pk-radio { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--control); background: var(--surface); flex: none; }
+.pickup button[aria-checked="true"] .pk-radio { box-shadow: inset 0 0 0 6px var(--accent); }
+.pickup b { font-size: var(--fs-small); font-weight: 600; line-height: 1.3; }
+.pickup small { font-size: var(--fs-cap); color: var(--muted); line-height: 1.35; }
+.pickup em { position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px; background: var(--raised); font-style: normal; font-size: var(--fs-cap); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.pickup em.free { background: var(--pill-positive-bg); color: var(--positive); }
+.pickup em:empty { display: none; }

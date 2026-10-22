@@ -171,6 +171,7 @@
           <div class="next-kind"><span class="tag ${pickup ? 'accent' : 'live'}">${pickup ? 'Ачаа авах' : 'Хүргэх'} · № ${esc(o.no)}</span><span class="sm faint">${stops.length} зогсоол</span></div>
           <div class="next-addr">${esc(s.address || (pickup ? o.from : o.to))}</div>
           <div class="next-meta">${s.etaMin != null ? `<span>${I.clock}≈ ${mins(s.etaMin)} мин</span>` : ''}${pickup && s.waitMin ? `<span>Хүлээлт ≈ ${mins(s.waitMin)} мин</span>` : ''}<span>${I.box}${esc(o.title)}</span>${o.urgent ? '<span class="tag warn">Яаралтай</span>' : ''}</div>
+          ${pickup ? `<div class="handoff${o.pickup === 'door' ? ' door' : ''}">${o.pickup === 'door' ? `${I.home}<span><b>Орж авна</b><small>Захиалагчийн хаалган дээр очиж ачааг авна. Хаягийн дэлгэрэнгүйг харна уу.</small></span>` : `${I.user}<span><b>Захиалагч гаргаж өгнө</b><small>Гадаа ирээд захиалагчид залгаж эсвэл бичиж мэдэгдээрэй.</small></span>`}</div>` : ''}
           <div class="cust"><span class="avatar">${esc(initials(o.customer))}</span><span class="grow"><b>${esc(o.customer || 'Захиалагч')}</b><br><span class="sm muted">${o.note ? esc(o.note) : 'Захиалагч'}</span></span>
             ${o.customerPhone ? `<a class="round-btn" href="tel:${esc(o.customerPhone)}" aria-label="Залгах">${I.phone}</a>` : ''}<button class="round-btn" data-chat="${esc(o.no)}" aria-label="Чат">${I.chat}</button></div>
           <div class="pay-line"><span class="muted">Энэ хүргэлтийн орлого</span><b>${money(o.pay.total)}</b></div>
@@ -288,7 +289,7 @@
             <button class="row" data-wallet><span class="ico ok">${I.wallet}</span><span class="grow"><span class="b" style="display:block">Дансны үлдэгдэл</span><span class="sub" style="display:block">Хүргэлт бүрийн орлого шууд орно</span></span><b class="num">${money(u.wallet)}</b></button>
             <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
             <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
-          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.3</p></div></div>`;
+          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.3.1</p></div></div>`;
       }
       draw();
       api('/api/me').then(() => draw()).catch(() => { });

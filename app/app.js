@@ -8,19 +8,6 @@
     cancelled: { label: 'Цуцлагдсан', tag: '', ico: 'close', cls: '' },
   };
   const DRIVER_KIND = { dedicated: 'Үндсэн жолооч', crowd: 'Чөлөөт жолооч' };
-  // the parcel kinds offered as one-tap shortcuts on the home screen
-  const KINDS = [
-    { kind: 'Бичиг баримт', label: 'Баримт', ico: 'doc' },
-    { kind: 'Хүнс', label: 'Хүнс', ico: 'bag' },
-    { kind: 'Цэцэг', label: 'Цэцэг', ico: 'flower' },
-    { kind: 'Тавилга', label: 'Тавилга', ico: 'sofa' },
-  ];
-  const K = {
-    doc: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>',
-    bag: '<svg viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
-    flower: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="2.2"/><path d="M12 5.8a2.6 2.6 0 1 1 2.6-2.4M14.2 8a2.6 2.6 0 1 1 1.4 3.6M12 10.2a2.6 2.6 0 1 1-3 2.4M9.8 8a2.6 2.6 0 1 1 .6-3.8"/><path d="M12 12v9M12 17c-2.5 0-4-1.5-4.5-3.5M12 19c2 0 3.5-1 4-3"/></svg>',
-    sofa: '<svg viewBox="0 0 24 24"><path d="M5 11V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 13a2 2 0 0 1 4 0v1h10v-1a2 2 0 0 1 4 0v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M6 18v2M18 18v2"/></svg>',
-  };
   const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Сайн байна уу' : h < 12 ? 'Өглөөний мэнд' : h < 18 ? 'Өдрийн мэнд' : 'Оройн мэнд'; };
   const fmt = n => Math.round(n).toLocaleString('en-US');
   const killMap = el => { el && el.querySelectorAll('.om').forEach(m => { if (m._om) { m._om.remove(); m._om = null; } }); };
@@ -90,14 +77,13 @@
         <div class="scroll"><div class="pad stack home">
           <section class="card where">
             <button class="where-field" data-new><span class="where-pin">${I.pin}</span><span class="grow"><b>Хаашаа илгээх вэ?</b><small>Хоёр цэгээ газрын зураг дээр сонгоно</small></span>${I.chevron}</button>
-            <div class="kinds" role="group" aria-label="Түгээмэл ачаа">${KINDS.map(k => `<button type="button" data-kind="${esc(k.kind)}"><span class="k-ico">${K[k.ico]}</span><span>${esc(k.label)}</span></button>`).join('')}</div>
+            <button class="btn btn-primary btn-block btn-lg" data-new>${I.plus}Шинэ захиалга</button>
           </section>
           <div data-active class="stack"></div>
           <div class="card wallet-row"><span class="ico accent">${I.wallet}</span><span class="grow"><small>Хэтэвч</small><b class="num" data-balance>${money(u.wallet)}</b></span><button class="btn btn-tint btn-sm" data-topup>${I.plus}Цэнэглэх</button></div>
           <div data-recent></div>
         </div></div>`;
-      el.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => Core.push('new', { kind: b.dataset.kind })));
-      $(el, '[data-new]').addEventListener('click', () => Core.push('new'));
+      el.querySelectorAll('[data-new]').forEach(b => b.addEventListener('click', () => Core.push('new')));
       $(el, '[data-topup]').addEventListener('click', () => topupSheet(() => load()));
       $(el, '[data-notes]').addEventListener('click', notesSheet);
       const views = {};
@@ -412,7 +398,7 @@
               <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
               <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
             </div>
-            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3</p>
+            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.1</p>
           </div></div>`;
       };
       draw(Core.user() || {}, []);

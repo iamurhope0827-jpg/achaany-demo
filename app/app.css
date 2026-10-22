@@ -6,8 +6,8 @@
 .hello small { display: block; font-size: var(--fs-small); color: var(--muted); }
 .hello b { display: block; font-size: var(--fs-title); line-height: 1.25; font-weight: 600; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* "where to": a search field and the four most common parcels in one card */
-.where { padding: 8px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+/* "where to": a search field and the new-order button in one card */
+.where { padding: 8px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .where-field { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 10px; border-radius: 12px; background: var(--raised); text-align: left; transition: background 120ms; }
 .where-field:active { background: var(--active); }
 .where-pin { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; flex: none; box-shadow: 0 4px 10px rgba(47, 111, 237, .25); }
@@ -16,12 +16,6 @@
 .where-field b { display: block; font-size: 16px; font-weight: 600; letter-spacing: -.012em; }
 .where-field small { display: block; font-size: var(--fs-small); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .where-field > svg:last-child { width: 18px; height: 18px; color: var(--faint); }
-.kinds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding-top: 4px; }
-.kinds button { display: grid; justify-items: center; gap: 6px; padding: 10px 2px 8px; border-radius: 12px; font-size: var(--fs-cap); font-weight: 500; color: var(--text); min-width: 0; transition: background 120ms; }
-.kinds button:active { background: var(--raised); }
-.kinds button > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.k-ico { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--accent-tint); color: var(--accent-ink); }
-.k-ico svg { width: 22px; height: 22px; }
 
 /* a delivery under way: small live map, then status, route and driver */
 .live-card { overflow: hidden; }

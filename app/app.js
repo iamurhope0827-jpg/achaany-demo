@@ -144,7 +144,7 @@
         <div class="panel"><button class="grabber-btn" data-grab aria-label="Дэлгэрэнгүй"><span class="grabber"></span></button>
           <form class="panel-body" novalidate>
             <div class="addr-input">
-              <span class="dot"></span><div class="input" data-addr="from"><input data-in="from" placeholder="Авах хаяг (газрын зургаас)" autocomplete="off" /></div>
+              <span class="dot"></span><div class="input" data-addr="from"><input data-in="from" placeholder="Авах хаяг (газрын зургаас)" autocomplete="off" /><button type="button" class="loc-btn" data-locate aria-label="Миний байгаа газар"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span>Миний байршил</span></button></div>
               <span class="vline"></span><span></span>
               <span class="dot to"></span><div class="input" data-addr="to"><input data-in="to" placeholder="Хүргэх хаяг" autocomplete="off" /></div>
             </div>
@@ -183,13 +183,32 @@
         inp.addEventListener('focus', () => setMode(inp.dataset.in));
         inp.addEventListener('change', () => picker.guess(inp.dataset.in, inp.value));
       });
-      picker.onPlaced(async (kind, ll) => {
+      // the pickup point from where the customer is standing now (the phone's GPS)
+      $(el, '[data-locate]').addEventListener('click', e => {
+        const btn = e.currentTarget;
+        if (!navigator.geolocation) { Core.toast('Энэ төхөөрөмж байршил тодорхойлж чадахгүй байна.', 'error'); return; }
+        btn.classList.add('busy');
+        navigator.geolocation.getCurrentPosition(async pos => {
+          btn.classList.remove('busy');
+          const ll = [pos.coords.latitude, pos.coords.longitude];
+          if (OrderMap.inService && !OrderMap.inService(ll)) { Core.toast('Таны байршил Улаанбаатараас гадна байна. Газрын зураг дээр товшиж сонгоно уу.', 'error'); return; }
+          setMode('from');
+          picker.set('from', ll, { fly: true });
+          $(el, '[data-in="from"]').value = '';
+          await placedAt('from', ll);
+        }, err => {
+          btn.classList.remove('busy');
+          Core.toast(err.code === 1 ? 'Байршлын зөвшөөрөл өгөөгүй байна. Утасны тохиргооноос зөвшөөрөх эсвэл газрын зураг дээр товшиж сонгоно уу.' : 'Байршил олдсонгүй. Газрын зураг дээр товшиж сонгоно уу.', 'error');
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+      });
+      picker.onPlaced((kind, ll) => placedAt(kind, ll));
+      async function placedAt(kind, ll) {
         picker.manual(kind); placed[kind] = true;
         if (kind === 'from' && !picker.get().to) setMode('to');
         const inp = $(el, `[data-in="${kind}"]`);
         if (!inp.value.trim()) { const a = await OrderMap.addressAt(ll); if (a && !inp.value.trim()) { inp.value = a; validate(); } }
         validate();
-      });
+      }
       setMode('from');
       // selection over typing: the common parcel kinds are one tap
       $(el, '[data-kinds]').addEventListener('click', e => {
@@ -398,7 +417,7 @@
               <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
               <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
             </div>
-            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.1</p>
+            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.2</p>
           </div></div>`;
       };
       draw(Core.user() || {}, []);

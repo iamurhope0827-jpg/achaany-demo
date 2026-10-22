@@ -104,3 +104,12 @@
 .amounts button { min-height: 48px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); font-weight: 600; }
 .amounts button[aria-pressed="true"] { background: var(--accent-tint); color: var(--accent-ink); box-shadow: inset 0 0 0 1.5px var(--accent); }
 .live-card .om-key { display: none; }
+
+/* "my location" inside the pickup field */
+.loc-btn { display: inline-flex; align-items: center; gap: 4px; flex: none; min-height: 32px; padding: 0 10px; margin-right: -6px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-ink); font-size: var(--fs-cap); font-weight: 600; white-space: nowrap; }
+.loc-btn svg { width: 16px; height: 16px; color: var(--accent-ink); }
+.loc-btn:active { background: var(--active); }
+.loc-btn.busy { pointer-events: none; opacity: .6; }
+.loc-btn.busy svg { animation: loc-spin 1s linear infinite; }
+@keyframes loc-spin { to { transform: rotate(360deg); } }
+@media (max-width: 370px) { .loc-btn span { display: none; } .loc-btn { padding: 0 8px; } }

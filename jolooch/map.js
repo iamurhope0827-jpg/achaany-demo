@@ -125,13 +125,14 @@ const OrderMap = (function () {
     if (el._om) { el._om.remove(); el._om = null; }
     el.innerHTML = '';
     el.classList.add('om');
-    const map = L.map(el, { zoomSnap: 0.25, zoomControl: interactive, attributionControl: true, scrollWheelZoom: false, dragging: interactive, tap: interactive, doubleClickZoom: interactive, boxZoom: false, keyboard: interactive });
+    const map = L.map(el, { zoomSnap: 0.25, zoomControl: interactive, attributionControl: true, scrollWheelZoom: interactive, wheelPxPerZoomLevel: 90, dragging: interactive, tap: interactive, doubleClickZoom: interactive, boxZoom: false, keyboard: interactive });
     L.tileLayer(TILES, { attribution: ATTRIB, maxZoom: 19 }).addTo(map);
     map.attributionControl.setPrefix(false);
     el._om = map;
     // the tile grid needs a size, and cards can grow after the map is made: keep the route framed
     // until the person moves the map themselves
     map.on('dragstart', () => { map._omTouched = true; });
+    if (interactive) el.addEventListener('wheel', () => { map._omTouched = true; }, { passive: true });
     if (window.ResizeObserver) new ResizeObserver(() => { map.invalidateSize(); if (map._omFit && !map._omTouched) fit(map, ...map._omFit); }).observe(el);
     return map;
   }

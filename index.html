@@ -25,6 +25,7 @@
           <a href="new-order.html" class="btn btn-light"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Шинэ ачаа бүртгэх</a>
           <a href="orders.html" class="btn btn-onteal">Бүх захиалга</a>
         </div>
+        <div class="hero-todo" id="hero-todo" aria-label="Таны анхаарах захиалга"></div>
         <dl class="hero-stats">
           <div><dt>Идэвхтэй</dt><dd class="num" id="k-active">0</dd></div>
           <div><dt>Ирсэн санал</dt><dd class="num" id="k-offers">0</dd></div>
@@ -151,7 +152,7 @@
       return;
     }
     $('live-card').classList.remove('idle');
-    live.view = OrderMap.order($('live-map'), o, { interactive: false, onInfo: i => {
+    live.view = OrderMap.order($('live-map'), o, { interactive: true, onInfo: i => {
       const el = $('live-eta'); if (!el) return;
       el.textContent = i.leg === 'pickup' ? `Ачаа авахаар ирж байна · ≈ ${i.etaMin} мин` : i.etaMin ? `≈ ${i.etaMin} минутад хүргэгдэнэ` : '';
     } });
@@ -187,6 +188,22 @@
       </a>`;
   }
 
+  // the orders that need the customer, most urgent first: offers to choose from, then deliveries on the road
+  function renderTodo(lanes) {
+    const rows = [
+      ...lanes.waiting.filter(o => o.offers).map(o => ({ o, tag: 'waiting', text: `${o.offers} санал ирсэн`, act: 'Санал сонгох' })),
+      ...lanes.transit.map(o => ({ o, tag: 'transit', text: o.stage === 'picked' ? 'Ачаа замдаа' : 'Жолооч ачаа авахаар явж байна', act: 'Харах' })),
+      ...lanes.waiting.filter(o => !o.offers).map(o => ({ o, tag: 'idle', text: 'Жолооч хайж байна', act: 'Харах' })),
+    ].slice(0, 3);
+    const box = $('hero-todo');
+    box.innerHTML = rows.length ? `<h2>Таны анхаарах</h2>` + rows.map(({ o, tag, text, act }) => `
+      <a class="todo-row" href="orders.html?open=${encodeURIComponent(o.no)}">
+        <span class="stage-dot ${tag === 'idle' ? 'waiting' : tag}"></span>
+        <span class="todo-main"><b>${esc(o.title)}</b><small>${esc(text)} · ${esc(o.from)} → ${esc(o.to)}</small></span>
+        <span class="todo-act">${act}</span>
+      </a>`).join('') : '';
+  }
+
   function renderBoard() {
     const lanes = {
       waiting: orders.filter(o => o.status === 'waiting').sort((a, b) => (b.offers || 0) - (a.offers || 0)),
@@ -217,6 +234,7 @@
       : pick.length ? `${pick.length} захиалгад ${offers} санал ирж, таны сонголтыг хүлээж байна${lanes.transit.length ? ` · ${lanes.transit.length} ачаа замдаа` : ''}.`
       : lanes.transit.length ? `${lanes.transit.length} ачаа замдаа явж байна.` : 'Идэвхтэй хүргэлт алга — бүх захиалга хаагдсан.';
     renderLive(lanes.transit);
+    renderTodo(lanes);
 
     const series = [];
     for (let i = 6; i >= 0; i--) { const d = new Date(now); d.setDate(now.getDate() - i); series.push({ d, n: orders.filter(o => (o.date || '').startsWith(ymd(d))).length }); }

@@ -1319,3 +1319,15 @@ h1, h2, h3 { letter-spacing: -.02em; }
 .place-detail .pd input { width: 100%; min-width: 0; height: 34px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--control); background: var(--surface); color: var(--text); }
 .place-detail .pd input:focus { outline: none; border-color: var(--text); box-shadow: 0 0 0 3px var(--accent-tint); }
 @media (max-width: 420px) { .loc-btn { font-size: 0; gap: 0; padding: 0 8px; } .loc-btn svg { width: 16px; height: 16px; } }
+
+/* ----- home: what needs the customer, in the space under the greeting ----- */
+.hero-todo { display: grid; gap: 6px; margin-top: 24px; }
+.hero-todo:empty { display: none; }
+.hero-todo h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+.todo-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--raised); color: var(--text); text-decoration: none; min-width: 0; transition: background .12s; }
+.todo-row:hover { background: var(--active); }
+.todo-row .stage-dot { flex: none; }
+.todo-main { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.todo-main b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-main small { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-act { flex: none; font-size: 13px; font-weight: 600; color: var(--accent-ink); }

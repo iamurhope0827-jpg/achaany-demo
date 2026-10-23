@@ -324,6 +324,28 @@ const MockApi = (function () {
     switch (path) {
       case '/api/me': return { user: publicUser(me) };
       case '/api/pricing': return { fare: clone(FARE) };
+      case '/api/geocode': {
+        // the demo has no server: ask Photon (OpenStreetMap search made for typing) straight from the browser,
+        // keep places inside Ulaanbaatar and drop the traditional script OpenStreetMap adds to names
+        const q = trimmed(b.q);
+        if (q.length < 2 || q.length > 100) return { results: [] };
+        const clean = t => String(t || '').replace(/[᠀-᢯ ]+/g, ' ').replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim().replace(/^,|,$/g, '').trim();
+        let j;
+        try { j = await (await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lang=default&lat=47.9185&lon=106.9177&limit=10&bbox=106.45,47.70,107.45,48.15`)).json(); }
+        catch { fail(502, 'Хайлт ажилласангүй.'); }
+        const out = [];
+        for (const f of j.features || []) {
+          const pr = f.properties || {}, [lng, lat] = f.geometry.coordinates;
+          if (lat < 47.70 || lat > 48.15 || lng < 106.45 || lng > 107.45) continue;
+          const street = pr.street ? (pr.housenumber ? `${pr.street} ${pr.housenumber}` : pr.street) : (pr.housenumber || '');
+          let name = clean(pr.name), address = clean([pr.district, street].filter(x => x && x !== pr.name).join(', '));
+          if (!name) { name = address; address = ''; }
+          if (!name || out.some(x => x.name === name && kmBetween(x.ll, [lat, lng]) < 0.12)) continue;
+          out.push({ name, address, ll: [lat, lng], source: 'photon' });
+          if (out.length >= 7) break;
+        }
+        return { results: out };
+      }
       case '/api/logout-all': session.clear(); return { ok: true };
       case '/api/profile': {
         const name = trimmed(b.name), phone = trimmed(b.phone).replace(/\s/g, ''), regNo = trimmed(b.regNo).toUpperCase();

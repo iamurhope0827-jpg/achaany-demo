@@ -56,13 +56,21 @@
           <div class="row-2" style="margin-top:14px">
             <div class="field" data-field="from">
               <label for="from">Ачаа авах хаяг</label>
-              <div class="input"><input id="from" maxlength="160" placeholder="Дүүрэг, хороо, байр" /></div>
+              <div class="addr-wrap">
+                <div class="input"><input id="from" maxlength="160" placeholder="Хаяг, газрын нэрээр хайх" autocomplete="off" /><button type="button" class="loc-btn" id="locate" title="Миний байгаа газар"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Миний байршил</button></div>
+                <div class="addr-suggest" data-suggest="from" role="listbox" aria-label="Олдсон хаягууд" hidden></div>
+              </div>
               <span class="err"></span>
+              <div class="place" data-place="from"><span class="place-head">Авах газар <small>заавал биш</small></span><div class="chips" data-ptypes></div><div class="place-detail" hidden></div></div>
             </div>
             <div class="field" data-field="to">
               <label for="to">Хүргэх хаяг</label>
-              <div class="input"><input id="to" maxlength="160" placeholder="Дүүрэг, хороо, байр" /></div>
+              <div class="addr-wrap">
+                <div class="input"><input id="to" maxlength="160" placeholder="Хаяг, газрын нэрээр хайх" autocomplete="off" /></div>
+                <div class="addr-suggest" data-suggest="to" role="listbox" aria-label="Олдсон хаягууд" hidden></div>
+              </div>
               <span class="err"></span>
+              <div class="place" data-place="to"><span class="place-head">Хүргэх газар <small>заавал биш</small></span><div class="chips" data-ptypes></div><div class="place-detail" hidden></div></div>
             </div>
           </div>
           <div class="field" style="margin-top:16px">
@@ -275,6 +283,103 @@
   });
   ['from', 'to'].forEach(k => $(k).addEventListener('change', () => picker.guess(k, $(k).value)));
 
+  // ----- address search: places matching what is typed (Photon, through the server); a click puts the pin there -----
+  let seq = 0, timer = null;
+  ['from', 'to'].forEach(k => {
+    const inp = $(k), box = document.querySelector(`[data-suggest="${k}"]`);
+    const close = () => { box.hidden = true; box.innerHTML = ''; box._list = []; };
+    inp.addEventListener('focus', () => setMode(k));
+    inp.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = inp.value.trim();
+      if (q.length < 2) { seq++; close(); return; }
+      timer = setTimeout(async () => {
+        const my = ++seq;
+        box.hidden = false;
+        if (!box._list || !box._list.length) box.innerHTML = '<div class="sg-note">Хайж байна…</div>';
+        try {
+          const d = await App.api('/api/geocode', { q });
+          if (my !== seq) return;
+          box._list = d.results || [];
+          box.innerHTML = box._list.length
+            ? box._list.map((r, i) => `<button type="button" role="option" data-sg="${i}"><b>${esc(r.name)}</b>${r.address ? `<small>${esc(r.address)}</small>` : ''}</button>`).join('')
+            : '<div class="sg-note">Олдсонгүй. Газрын зураг дээр дарж тэмдэглэнэ үү.</div>';
+        } catch { if (my === seq) box.innerHTML = '<div class="sg-note">Хайлт ажилласангүй. Газрын зураг дээр дарж тэмдэглэнэ үү.</div>'; }
+      }, 300);
+    });
+    box.addEventListener('mousedown', e => e.preventDefault());   // keep the field focused until the click lands
+    box.addEventListener('click', e => {
+      const b = e.target.closest('[data-sg]'); if (!b) return;
+      const r = box._list[Number(b.dataset.sg)]; if (!r) return;
+      seq++; clearTimeout(timer);
+      inp.value = r.address ? `${r.name}, ${r.address}` : r.name;
+      close();
+      const other = picker.get()[k === 'from' ? 'to' : 'from'];
+      picker.set(k, r.ll, { fly: !other });
+      if (other) picker.fit();
+      picker.manual(k);
+      if (k === 'from' && !other) setMode('to');
+      App.fieldError(form, k, ''); summary();
+      inp.blur();
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const f = box.querySelector('[data-sg]'); if (f) { e.preventDefault(); f.click(); } } });
+    inp.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== inp) box.hidden = true; }, 200));
+  });
+
+  // ----- the pickup point from where the customer is now -----
+  $('locate').addEventListener('click', e => {
+    const btn = e.currentTarget;
+    if (!navigator.geolocation) { App.toast('Энэ төхөөрөмж байршил тодорхойлж чадахгүй байна.', 'error'); return; }
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(async pos => {
+      btn.disabled = false;
+      const ll = [pos.coords.latitude, pos.coords.longitude];
+      if (OrderMap.inService && !OrderMap.inService(ll)) { App.toast('Таны байршил Улаанбаатараас гадна байна. Газрын зураг дээр дарж сонгоно уу.', 'error'); return; }
+      setMode('from');
+      picker.set('from', ll, { fly: true }); picker.manual('from');
+      if (!picker.get().to) setMode('to');
+      const a = await OrderMap.addressAt(ll);
+      if (a) { $('from').value = a; App.fieldError(form, 'from', ''); }
+      summary();
+    }, err => {
+      btn.disabled = false;
+      App.toast(err.code === 1 ? 'Байршлын зөвшөөрөл өгөөгүй байна. Хөтчийн тохиргооноос зөвшөөрөх эсвэл газрын зураг дээр дарж сонгоно уу.' : 'Байршил олдсонгүй. Газрын зураг дээр дарж сонгоно уу.', 'error');
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+  });
+
+  // ----- optional kind of place for each point, with only the details a driver needs to find the door -----
+  const PLACES = {
+    flat: { label: 'Байр', fields: [['bldg', 'Байр', '5'], ['entr', 'Орц', '2'], ['floor', 'Давхар', '3'], ['door', 'Тоот', '45']] },
+    office: { label: 'Оффис', fields: [['org', 'Байгууллага', 'Компанийн нэр', 2], ['floor', 'Давхар', '7'], ['door', 'Тоот', '702']] },
+    house: { label: 'Хашаа', fields: [['door', 'Хашааны тоот', '17', 2], ['street', 'Гудамж', '3-р гудамж', 2]] },
+    other: { label: 'Бусад', fields: [['text', 'Тайлбар', 'Жишээ: Их дэлгүүрийн хойд хаалга', 4]] },
+  };
+  const place = { from: null, to: null };
+  document.querySelectorAll('[data-place]').forEach(box => {
+    const k = box.dataset.place, detail = box.querySelector('.place-detail'), chips = box.querySelector('[data-ptypes]');
+    chips.innerHTML = Object.entries(PLACES).map(([t, p]) => `<button type="button" class="chip-btn" data-ptype="${t}" aria-pressed="false">${p.label}</button>`).join('');
+    chips.addEventListener('click', e => {
+      const b = e.target.closest('[data-ptype]'); if (!b) return;
+      const t = place[k] === b.dataset.ptype ? null : b.dataset.ptype;   // the chosen kind again clears it
+      place[k] = t;
+      chips.querySelectorAll('[data-ptype]').forEach(x => { const on = x.dataset.ptype === t; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+      detail.hidden = !t;
+      detail.innerHTML = t ? PLACES[t].fields.map(([n, label, ph, span]) => `<label class="pd" style="grid-column:span ${span || 1}"><small>${label}</small><input data-pf="${n}" placeholder="${esc(ph)}" maxlength="60" autocomplete="off" /></label>`).join('') : '';
+      summary();
+    });
+    detail.addEventListener('input', () => summary());
+  });
+  const placeText = k => {
+    const t = place[k]; if (!t) return '';
+    const v = {}; document.querySelectorAll(`[data-place="${k}"] [data-pf]`).forEach(i => { v[i.dataset.pf] = i.value.trim(); });
+    const parts = t === 'flat' ? [v.bldg && v.bldg + '-р байр', v.entr && v.entr + '-р орц', v.floor && v.floor + ' давхар', v.door && v.door + ' тоот']
+      : t === 'office' ? [v.org, v.floor && v.floor + ' давхар', v.door && v.door + ' тоот']
+      : t === 'house' ? [v.street, v.door && v.door + ' тоот хашаа']
+      : [v.text];
+    return parts.filter(Boolean).join(', ');
+  };
+  const withPlace = k => { const a = $(k).value.trim(), d = placeText(k); return d ? `${a}, ${d}` : a; };
+
   function data() {
     const ll = picker.get();
     return {
@@ -282,8 +387,9 @@
       type: 'delivery',
       title: $('title').value.trim(),
       weight: $('weight').value.trim(),
-      from: $('from').value.trim(),
-      to: $('to').value.trim(),
+      from: withPlace('from'),
+      to: withPlace('to'),
+      fromPlace: place.from, toPlace: place.to,
       pickupDate: pickupDate(),
       needs: [...$('needs').querySelectorAll('.on')].map(b => b.dataset.need),
       price: want, km: fare ? fare.km : null, size,

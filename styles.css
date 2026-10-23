@@ -1294,3 +1294,28 @@ h1, h2, h3 { letter-spacing: -.02em; }
 .om .om-key { display: flex; gap: 10px; padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, .9); font-size: 11px; color: var(--text); box-shadow: 0 1px 3px rgba(16, 24, 40, .14); }
 .om .om-key span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .om .om-key i { width: 14px; height: 4px; border-radius: 2px; }
+/* ----- new order: address search, "my location" and the optional kind of place ----- */
+.addr-wrap { position: relative; }
+.addr-suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20; display: grid; max-height: 320px; overflow-y: auto; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 8px 28px rgba(19, 20, 22, .12), 0 1px 3px rgba(19, 20, 22, .06); }
+.addr-suggest[hidden] { display: none; }
+.addr-suggest button { display: grid; gap: 1px; padding: 9px 12px; text-align: left; min-width: 0; }
+.addr-suggest button + button { border-top: 1px solid var(--rule); }
+.addr-suggest button:hover, .addr-suggest button:focus-visible { background: var(--raised); }
+.addr-suggest b { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.addr-suggest small { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.addr-suggest .sg-note { padding: 10px 12px; font-size: 13px; color: var(--muted); }
+.loc-btn { display: inline-flex; align-items: center; gap: 4px; flex: none; height: 28px; padding: 0 10px; margin-right: -6px; border-radius: 999px; background: var(--accent-tint); color: var(--accent-ink); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.loc-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.loc-btn:hover { background: #dce8ff; }
+.loc-btn:disabled { opacity: .6; cursor: progress; }
+.place { display: grid; gap: 6px; margin-top: 8px; }
+.place-head { font-size: 13px; color: var(--muted); }
+.place-head small { color: var(--faint); margin-left: 4px; }
+.place .chip-btn.on { background: var(--accent-tint); border-color: var(--accent); color: var(--accent-ink); }
+.place-detail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px; border-radius: 10px; background: var(--raised); }
+.place-detail[hidden] { display: none; }
+.place-detail .pd { display: grid; gap: 3px; min-width: 0; }
+.place-detail .pd small { font-size: 12px; color: var(--muted); }
+.place-detail .pd input { width: 100%; min-width: 0; height: 34px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--control); background: var(--surface); color: var(--text); }
+.place-detail .pd input:focus { outline: none; border-color: var(--text); box-shadow: 0 0 0 3px var(--accent-tint); }
+@media (max-width: 420px) { .loc-btn { font-size: 0; gap: 0; padding: 0 8px; } .loc-btn svg { width: 16px; height: 16px; } }

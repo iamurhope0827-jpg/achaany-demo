@@ -137,3 +137,16 @@
 .door-note small { display: block; font-size: var(--fs-cap); color: var(--muted); line-height: 1.35; }
 .door-note em { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--surface); font-style: normal; font-size: var(--fs-cap); font-weight: 600; font-variant-numeric: tabular-nums; }
 .door-note em:empty { display: none; }
+
+/* address search results under each address field */
+.suggest { display: grid; margin-top: 6px; border-radius: 12px; background: var(--surface); box-shadow: 0 0 0 1px var(--border), var(--shadow-float); overflow: hidden; min-width: 0; }
+.suggest[hidden] { display: none; }
+.suggest button { display: flex; align-items: flex-start; gap: 10px; width: 100%; min-height: 52px; padding: 10px 12px; text-align: left; min-width: 0; }
+.suggest button + button { box-shadow: 0 -1px 0 var(--rule); }
+.suggest button:active { background: var(--raised); }
+.suggest button svg { width: 18px; height: 18px; margin-top: 1px; color: var(--accent-ink); }
+.suggest button span { display: grid; gap: 1px; min-width: 0; }
+.suggest b { font-size: var(--fs-small); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest small { font-size: var(--fs-cap); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-note { padding: 12px; font-size: var(--fs-small); color: var(--muted); }
+.addr-input .suggest { grid-column: 2; }

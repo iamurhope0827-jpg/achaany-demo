@@ -162,9 +162,11 @@
         <div class="panel"><button class="grabber-btn" data-grab aria-label="Дэлгэрэнгүй"><span class="grabber"></span></button>
           <form class="panel-body" novalidate>
             <div class="addr-input">
-              <span class="dot"></span><div class="input" data-addr="from"><input data-in="from" placeholder="Авах хаяг (газрын зургаас)" autocomplete="off" /><button type="button" class="loc-btn" data-locate aria-label="Миний байгаа газар"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span>Миний байршил</span></button></div>
+              <span class="dot"></span><div class="input" data-addr="from"><input data-in="from" placeholder="Авах хаяг, газрын нэр" autocomplete="off" /><button type="button" class="loc-btn" data-locate aria-label="Миний байгаа газар"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span>Миний байршил</span></button></div>
+              <div class="suggest" data-suggest="from" role="listbox" aria-label="Олдсон хаягууд" hidden></div>
               <span class="vline"></span><span></span>
-              <span class="dot to"></span><div class="input" data-addr="to"><input data-in="to" placeholder="Хүргэх хаяг" autocomplete="off" /></div>
+              <span class="dot to"></span><div class="input" data-addr="to"><input data-in="to" placeholder="Хүргэх хаяг, газрын нэр" autocomplete="off" /></div>
+              <div class="suggest" data-suggest="to" role="listbox" aria-label="Олдсон хаягууд" hidden></div>
             </div>
             ${['from', 'to'].map(k => `<div class="place" data-place="${k}"><div class="place-head"><span>${k === 'from' ? 'Авах газар' : 'Хүргэх газар'}</span><small>заавал биш</small></div>
               <div class="chips">${Object.entries(PLACES).map(([t, p]) => `<button type="button" class="chip" data-ptype="${t}" aria-pressed="false">${p.label}</button>`).join('')}</div>
@@ -201,9 +203,48 @@
         el.querySelectorAll('[data-addr]').forEach(b => b.classList.toggle('active', b.dataset.addr === k));
       }
       el.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+      // address search: places matching what the customer types (the server asks Photon), one tap puts the pin there
+      let seq = 0, timer = null;
       el.querySelectorAll('[data-in]').forEach(inp => {
-        inp.addEventListener('focus', () => setMode(inp.dataset.in));
-        inp.addEventListener('change', () => picker.guess(inp.dataset.in, inp.value));
+        const k = inp.dataset.in, box = $(el, `[data-suggest="${k}"]`);
+        const close = () => { box.hidden = true; box.innerHTML = ''; box._list = []; };
+        inp.addEventListener('focus', () => { setMode(k); $(el, '.panel').classList.add('expanded'); });
+        inp.addEventListener('input', () => {
+          clearTimeout(timer);
+          const q = inp.value.trim();
+          if (q.length < 2) { seq++; close(); return; }
+          timer = setTimeout(async () => {
+            const my = ++seq;
+            box.hidden = false;
+            if (!box._list || !box._list.length) box.innerHTML = '<div class="sg-note">Хайж байна…</div>';
+            try {
+              const d = await api('/api/geocode', { q });
+              if (my !== seq) return;
+              box._list = d.results || [];
+              box.innerHTML = box._list.length
+                ? box._list.map((r, i) => `<button type="button" role="option" data-sg="${i}">${I.pin}<span><b>${esc(r.name)}</b>${r.address ? `<small>${esc(r.address)}</small>` : ''}</span></button>`).join('')
+                : '<div class="sg-note">Олдсонгүй. Газрын зураг дээр товшиж тэмдэглэнэ үү.</div>';
+            } catch { if (my === seq) box.innerHTML = '<div class="sg-note">Хайлт ажилласангүй. Газрын зураг дээр товшиж тэмдэглэнэ үү.</div>'; }
+          }, 300);
+        });
+        // tapping a result must not blur the field first (that would close the list before the tap lands)
+        box.addEventListener('pointerdown', e => e.preventDefault());
+        box.addEventListener('click', e => {
+          const b = e.target.closest('[data-sg]'); if (!b) return;
+          const r = box._list[Number(b.dataset.sg)]; if (!r) return;
+          seq++; clearTimeout(timer);
+          inp.value = r.address ? `${r.name}, ${r.address}` : r.name;
+          close();
+          const other = picker.get()[k === 'from' ? 'to' : 'from'];
+          picker.set(k, r.ll, { fly: !other });   // with both points set, show the whole trip instead
+          if (other) picker.fit();
+          placedAt(k, r.ll);
+          $(el, '.panel').classList.remove('expanded');
+          inp.blur();
+        });
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const f = box.querySelector('[data-sg]'); if (f) f.click(); } });
+        inp.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== inp) box.hidden = true; }, 200));
+        inp.addEventListener('change', () => picker.guess(k, inp.value));
       });
       // the pickup point from where the customer is standing now (the phone's GPS)
       $(el, '[data-locate]').addEventListener('click', e => {
@@ -461,7 +502,7 @@
               <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
               <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
             </div>
-            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.5</p>
+            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.6</p>
           </div></div>`;
       };
       draw(Core.user() || {}, []);

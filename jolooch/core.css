@@ -268,3 +268,11 @@ button.chip:active { background: var(--raised); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
+
+.om-picker-pin svg { width: 38px; height: 46px; }
+.om-picker-pin path { fill: #e8002d; stroke: #fff; stroke-width: 1; }
+.om-fullscreen { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 2px; background: white; color: #606060; box-shadow: 0 1px 5px #0003; cursor: pointer; }
+.om-fullscreen svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; }
+.om-fullscreen:hover { color: #202020; background: #f7f7f7; }
+.om-fullscreen:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.om-picker:fullscreen { width: 100vw; height: 100dvh; background: #f5f4f2; }

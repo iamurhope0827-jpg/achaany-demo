@@ -165,7 +165,10 @@ const OrderMap = (function () {
 
   // ---------- drawing ----------
   const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  const icon = (cls, html = '', size = 22) => L.divIcon({ className: 'om-icon ' + cls, html, iconSize: [size, size], iconAnchor: cls === 'om-pin' ? [size / 2, size] : [size / 2, size / 2] });
+  const icon = (cls, html = '', size = 22) => {
+    const height = cls.includes('om-picker-pin') ? 46 : size;
+    return L.divIcon({ className: 'om-icon ' + cls, html, iconSize: [size, height], iconAnchor: cls.split(' ').includes('om-pin') ? [size / 2, height] : [size / 2, size / 2] });
+  };
   const PIN = '<svg viewBox="0 0 24 30"><path d="M12 29c-6-8-10-13-10-18a10 10 0 0 1 20 0c0 5-4 10-10 18z"/><circle cx="12" cy="11" r="4"/></svg>';
   function base(el, { interactive = true } = {}) {
     if (el._om) { el._om.remove(); el._om = null; }
@@ -183,7 +186,15 @@ const OrderMap = (function () {
     map.on('unload', () => googleFailureHandlers.delete(fallback));
     loadGoogleMaps().then(() => {
       if (el._om !== map) return;
-      googleLayer = L.gridLayer.googleMutant({ type: 'roadmap', maxZoom: 19 });
+      googleLayer = L.gridLayer.googleMutant({ type: 'roadmap', maxZoom: 19, styles: [
+        { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#f5f4f2' }] },
+        { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#c9efda' }] },
+        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#8fd9e9' }] },
+        { featureType: 'road.highway', elementType: 'geometry.fill', stylers: [{ color: '#a7b9d2' }] },
+        { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#7c91ac' }] },
+        { featureType: 'road.arterial', elementType: 'geometry.fill', stylers: [{ color: '#b5c3d6' }] },
+        { featureType: 'road.arterial', elementType: 'geometry.stroke', stylers: [{ color: '#8b9cb3' }] }
+      ] });
       googleLayer.addTo(map);
       el.dataset.mapProvider = 'google';
     }).catch(fallback);
@@ -315,7 +326,33 @@ const OrderMap = (function () {
   // the new-order form's map: one tap places the active point; points can be dragged after
   function picker(el, { onChange } = {}) {
     const map = base(el);
-    map.setView(UB, 12);
+    el.classList.add('om-picker');
+    map.setView([47.9115, 106.924], 14);
+    map.zoomControl.setPosition('bottomright');
+    if (document.fullscreenEnabled) {
+      const fullscreen = L.control({ position: 'topright' });
+      fullscreen.onAdd = () => {
+        const button = L.DomUtil.create('button', 'om-fullscreen');
+        button.type = 'button';
+        button.title = 'Бүтэн дэлгэцээр харах';
+        button.setAttribute('aria-label', button.title);
+        button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg>';
+        L.DomEvent.disableClickPropagation(button);
+        L.DomEvent.disableScrollPropagation(button);
+        button.addEventListener('click', async () => {
+          try {
+            if (document.fullscreenElement === el) await document.exitFullscreen();
+            else await el.requestFullscreen();
+          } catch { /* Browser may not allow fullscreen in an embedded preview. */ }
+          map.invalidateSize();
+        });
+        return button;
+      };
+      fullscreen.addTo(map);
+      const resized = () => map.invalidateSize();
+      document.addEventListener('fullscreenchange', resized);
+      map.on('unload', () => document.removeEventListener('fullscreenchange', resized));
+    }
     const pts = { from: null, to: null };
     const marks = {};
     let active = 'from';
@@ -340,7 +377,7 @@ const OrderMap = (function () {
       pts[kind] = ll;
       if (marks[kind]) marks[kind].setLatLng(ll);
       else {
-        marks[kind] = L.marker(ll, { draggable: true, icon: kind === 'from' ? icon('om-start') : icon('om-pin', PIN, 26), title: kind === 'from' ? 'Ачаа авах' : 'Хүргэх', autoPan: true }).addTo(map);
+        marks[kind] = L.marker(ll, { draggable: true, icon: icon('om-pin om-picker-pin om-picker-' + kind, PIN, 38), title: kind === 'from' ? 'Ачаа авах' : 'Хүргэх', autoPan: true }).addTo(map);
         marks[kind].on('dragend', () => { pts[kind] = [marks[kind].getLatLng().lat, marks[kind].getLatLng().lng]; redraw(); onPlaced && onPlaced(kind, pts[kind]); });
       }
       if (fly) map.flyTo(ll, Math.max(map.getZoom(), 14), { duration: 0.5 });

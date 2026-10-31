@@ -7,6 +7,23 @@ const MockApi = (function () {
   try { if (params.has('demo')) sessionStorage.setItem('force_demo', '1'); } catch { }
   const forced = (() => { try { return sessionStorage.getItem('force_demo') === '1'; } catch { return false; } })();
   const enabled = forced || location.protocol === 'file:' || !['localhost', '127.0.0.1'].includes(location.hostname);
+  let searchConfig;
+  async function sharedPlaces(q) {
+    if (!searchConfig || Date.now() - searchConfig.at > 60000) {
+      const response = await fetch('app-config.json', { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      if (!response.ok) throw new Error('Server configuration unavailable');
+      searchConfig = { value: await response.json(), at: Date.now() };
+    }
+    const server = new URL(searchConfig.value.server);
+    if (server.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(server.hostname)) throw new Error('Invalid server address');
+    const url = new URL('/api/places/search', server);
+    url.searchParams.set('q', q);
+    const response = await fetch(url, { credentials: 'omit', signal: AbortSignal.timeout(12000) });
+    if (!response.ok) throw new Error('Shared search unavailable');
+    const data = await response.json();
+    if (!Array.isArray(data.results)) throw new Error('Invalid search response');
+    return { results: data.results, shared: true };
+  }
 
   const KEY = 'achaany_demo_db_v1';
   const SESSION = 'achaany_demo_session';
@@ -341,7 +358,10 @@ const MockApi = (function () {
       case '/api/me': return { user: publicUser(me) };
       case '/api/pricing': return { fare: clone(FARE) };
       case '/api/geocode': {
-        // the demo has no server: ask Photon (OpenStreetMap search made for typing) straight from the browser,
+        const raw = trimmed(b.q);
+        if (raw.length < 2 || raw.length > 100) return { results: [] };
+        try { return await sharedPlaces(raw); } catch { /* Keep the demo usable if the server is offline. */ }
+        // The shared server is unavailable: fall back to Photon directly from the browser,
         // keep places inside Ulaanbaatar and drop the traditional script OpenStreetMap adds to names
         const q = typeof OrderMap !== 'undefined' ? OrderMap.normalizeQuery(b.q) : trimmed(b.q);
         if (q.length < 2 || q.length > 100) return { results: [] };
@@ -361,7 +381,7 @@ const MockApi = (function () {
           out.push({ name, address, ll: [lat, lng], source: 'photon', building: !!pr.housenumber && !pr.name });
           if (out.length >= 7) break;
         }
-        return { results: out };
+        return { results: out, shared: false, notice: 'Log22 сервертэй холбогдсонгүй. Нээлттэй газрын хайлт ашиглаж байна.' };
       }
       case '/api/logout-all': session.clear(); return { ok: true };
       case '/api/profile': {

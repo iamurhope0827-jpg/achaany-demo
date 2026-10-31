@@ -218,7 +218,7 @@
             box.hidden = false;
             if (!box._list || !box._list.length) box.innerHTML = '<div class="sg-note">Хайж байна…</div>';
             try {
-              const d = await api('/api/geocode', { q });
+              const d = await api('/api/geocode', { q: OrderMap.normalizeQuery(q) });
               if (my !== seq) return;
               box._list = d.results || [];
               box.innerHTML = box._list.length
@@ -238,7 +238,7 @@
           const other = picker.get()[k === 'from' ? 'to' : 'from'];
           picker.set(k, r.ll, { fly: !other });   // with both points set, show the whole trip instead
           if (other) picker.fit();
-          placedAt(k, r.ll);
+          placedAt(k, r.ll, !!r.building);
           $(el, '.panel').classList.remove('expanded');
           inp.blur();
         });

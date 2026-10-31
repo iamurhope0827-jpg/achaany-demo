@@ -307,7 +307,7 @@
         box.hidden = false;
         if (!box._list || !box._list.length) box.innerHTML = '<div class="sg-note">Хайж байна…</div>';
         try {
-          const d = await App.api('/api/geocode', { q });
+          const d = await App.api('/api/geocode', { q: OrderMap.normalizeQuery(q) });
           if (my !== seq) return;
           box._list = d.results || [];
           box.innerHTML = box._list.length
@@ -331,6 +331,7 @@
       if (k === 'from' && !other) setMode('to');
       App.fieldError(form, k, ''); summary();
       inp.blur();
+      if (r.building) fillAddress(k, r.ll);
     });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const f = box.querySelector('[data-sg]'); if (f) { e.preventDefault(); f.click(); } } });
     inp.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== inp) box.hidden = true; }, 200));

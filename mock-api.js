@@ -327,7 +327,7 @@ const MockApi = (function () {
       case '/api/geocode': {
         // the demo has no server: ask Photon (OpenStreetMap search made for typing) straight from the browser,
         // keep places inside Ulaanbaatar and drop the traditional script OpenStreetMap adds to names
-        const q = trimmed(b.q);
+        const q = typeof OrderMap !== 'undefined' ? OrderMap.normalizeQuery(b.q) : trimmed(b.q);
         if (q.length < 2 || q.length > 100) return { results: [] };
         const clean = t => String(t || '').replace(/[᠀-᢯ ]+/g, ' ').replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim().replace(/^,|,$/g, '').trim();
         let j;
@@ -337,11 +337,12 @@ const MockApi = (function () {
         for (const f of j.features || []) {
           const pr = f.properties || {}, [lng, lat] = f.geometry.coordinates;
           if (lat < 47.70 || lat > 48.15 || lng < 106.45 || lng > 107.45) continue;
-          const street = pr.street ? (pr.housenumber ? `${pr.street} ${pr.housenumber}` : pr.street) : (pr.housenumber || '');
+          const building = pr.housenumber ? OrderMap.buildingNumber(pr.housenumber) : '';
+          const street = [pr.street, building].filter(Boolean).join(', ');
           let name = clean(pr.name), address = clean([pr.district, street].filter(x => x && x !== pr.name).join(', '));
           if (!name) { name = address; address = ''; }
           if (!name || out.some(x => x.name === name && kmBetween(x.ll, [lat, lng]) < 0.12)) continue;
-          out.push({ name, address, ll: [lat, lng], source: 'photon' });
+          out.push({ name, address, ll: [lat, lng], source: 'photon', building: !!pr.housenumber && !pr.name });
           if (out.length >= 7) break;
         }
         return { results: out };

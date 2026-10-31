@@ -38,6 +38,22 @@ const OrderMap = (function () {
   }
   const inService = p => validLL(p) && km(p, UB) < 150;
 
+  // Ignore address punctuation and Mongolian building suffixes when searching.
+  function normalizeQuery(value) {
+    let q = String(value || '').normalize('NFKC').toLocaleLowerCase('mn')
+      .replace(/хан[\s‐‑–—-]+уул/gu, 'хан-уул');
+    // JavaScript word boundaries do not recognize Cyrillic letters.
+    q = q.replace(/(\d+[а-яa-z]?(?:[/]\d+[а-яa-z]?)?)\s*-?\s*(?:р|дугаар|дүгээр)\s*байр(?=\s|[,.;]|$)/giu, '$1')
+      .replace(/(\d+[а-яa-z]?(?:[/]\d+[а-яa-z]?)?)\s+байр(?=\s|[,.;]|$)/giu, '$1');
+    const streetAddress = /гудамж/u.test(q) && /\d/u.test(q);
+    if (streetAddress) q = q.replace(/(?:хан-уул|баянзүрх|баянгол|сүхбаатар|чингэлтэй|сонгинохайрхан)(?=\s|[,.;]|$)\s*(?:дүүрэг)?/gu, ' ');
+    return q.replace(/[,.;]/g, ' ').replace(/(?:дүүрэг|гудамж)(?=\s|$)/gu, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function buildingNumber(value) {
+    const number = String(value || '').trim().replace(/\s*-?\s*(?:р|дугаар|дүгээр)?\s*байр$/iu, '').trim();
+    return number ? `${number}-р байр` : '';
+  }
+
   // ---------- roads ----------
   // Our server answers first (server.ps1 /api/route): Mapbox traffic when it has a token, blended with our
   // drivers' measured speeds and the correction learned from past deliveries. Without the server (the
@@ -320,10 +336,10 @@ const OrderMap = (function () {
       if (!r.ok) return "";
       const j = await r.json();
       const a = j.address || {};
-      const parts = [a.city_district || a.suburb || a.county, a.quarter || a.neighbourhood, a.road, a.house_number].filter(Boolean);
+      const parts = [a.city_district || a.suburb || a.county, a.quarter || a.neighbourhood, a.road, buildingNumber(a.house_number)].filter(Boolean);
       return parts.join(', ') || j.display_name || '';
     } catch { return ''; } finally { clearTimeout(timeout); }
   }
 
-  return { order, stops, city, picker, addressAt, districtOf, fromOf, toOf, km, inService };
+  return { order, stops, city, picker, addressAt, districtOf, fromOf, toOf, km, inService, normalizeQuery, buildingNumber };
 })();

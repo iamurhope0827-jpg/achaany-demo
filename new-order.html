@@ -274,7 +274,7 @@
   }
   $('pick-mode').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) setMode(b.dataset.k); });
   const addressVersion = { from: 0, to: 0 };
-  async function fillAddress(kind, ll) {
+  async function fillAddress(kind, ll, { preserveOnFailure = false } = {}) {
     const version = ++addressVersion[kind], input = $(kind), previous = input.value;
     input.setAttribute('aria-busy', 'true');
     const addr = await OrderMap.addressAt(ll);
@@ -282,8 +282,9 @@
     input.removeAttribute('aria-busy');
     const current = picker.get()[kind];
     if (!current || current[0] !== ll[0] || current[1] !== ll[1] || input.value !== previous) return;
+    if (!addr && preserveOnFailure) return;
     input.value = addr || `${ll[0].toFixed(6)}, ${ll[1].toFixed(6)}`;
-    if (!addr) App.toast('Хаяг олдсонгүй. Координатыг хадгаллаа. Хаягийн тайлбараа нэмж бичнэ үү.', 'error');
+    if (!addr) App.toast('Энэ цэгийн байрны хаяг баталгаажаагүй. Сонгосон цэгийг хадгаллаа. Хаягаа нэмж бичнэ үү.', 'error');
     App.fieldError(form, kind, '');
     summary();
   }
@@ -333,7 +334,7 @@
       if (k === 'from' && !other) setMode('to');
       App.fieldError(form, k, ''); summary();
       inp.blur();
-      if (r.building) fillAddress(k, r.ll);
+      if (r.building) fillAddress(k, r.ll, { preserveOnFailure: true });
     });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { const f = box.querySelector('[data-sg]'); if (f) { e.preventDefault(); f.click(); } } });
     inp.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== inp) box.hidden = true; }, 200));

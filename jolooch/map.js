@@ -395,8 +395,8 @@ const OrderMap = (function () {
       setActive: k => { active = k; },
       set,
       get: () => ({ from: pts.from, to: pts.to }),
-      // place a point from a typed address, unless the customer already placed it by hand
-      guess: (kind, addr) => { if (!districtOf(addr) || pts[kind + 'Manual']) return; set(kind, guess(addr), { fly: true }); },
+      // Typing is not a verified location. Only a search selection, GPS or map tap sets a pin.
+      guess: () => {},
       manual: kind => { pts[kind + 'Manual'] = true; },
       onPlaced: fn => { onPlaced = fn; },
       fit: () => { const p = [pts.from, pts.to].filter(Boolean); if (p.length) fit(map, p, [48, 48, 48, 48]); },
@@ -418,6 +418,10 @@ const OrderMap = (function () {
       if (!r.ok) return "";
       const j = await r.json();
       const a = j.address || {};
+      // Reverse lookup can snap to an unrelated road when this building is absent.
+      // Keep the user's actual pin instead of presenting that road as a building address.
+      const matched = [Number(j.lat), Number(j.lon)];
+      if (!a.house_number || !a.road || !validLL(matched) || km(ll, matched) > 0.075) return '';
       const parts = [a.city_district || a.suburb || a.county, a.quarter || a.neighbourhood, a.road, buildingNumber(a.house_number)].filter(Boolean);
       return parts.join(', ') || j.display_name || '';
     } catch { return ''; } finally { clearTimeout(timeout); }

@@ -1,4 +1,4 @@
-// Real maps for orders, drawn with Leaflet (vendor/leaflet) on OpenStreetMap tiles.
+// Google basemaps with the existing Leaflet order pins and route overlays.
 //   OrderMap.order(el, order)   one delivery: pickup ring, drop-off pin, the road route, and while it is
 //                               on the road the driver's marker (their shared GPS, or estimated from the stage)
 //   OrderMap.stops(el, orders)  a driver's batch: every stop still to make, numbered, on one route
@@ -18,6 +18,36 @@ const OrderMap = (function () {
   const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   const ATTRIB = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
   const ROUTER = 'https://router.project-osrm.org/route/v1/driving/';
+  const assetBase = new URL('.', document.currentScript.src);
+  let googleReady;
+  const googleFailureHandlers = new Set();
+  function loadGoogleMaps() {
+    if (googleReady) return googleReady;
+    googleReady = (async () => {
+      const response = await fetch(new URL('google-maps-config.json', assetBase));
+      if (!response.ok) throw new Error('Google Maps configuration is unavailable');
+      const { apiKey } = await response.json();
+      if (!apiKey) throw new Error('Google Maps key is missing');
+      const loadScript = src => new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => reject(new Error('Google Maps timed out')), 15000);
+        script.src = src;
+        script.onload = () => { clearTimeout(timeout); resolve(); };
+        script.onerror = () => { clearTimeout(timeout); reject(new Error('Google Maps could not load')); };
+        document.head.append(script);
+      });
+      window.gm_authFailure = () => {
+        for (const fallback of googleFailureHandlers) fallback();
+      };
+      const url = new URL('https://maps.googleapis.com/maps/api/js');
+      url.searchParams.set('key', apiKey);
+      url.searchParams.set('v', 'weekly');
+      url.searchParams.set('region', 'MN');
+      await loadScript(url.href);
+      await loadScript(new URL('vendor/google-mutant/Leaflet.GoogleMutant.js', assetBase).href);
+    })();
+    return googleReady;
+  }
 
   // ---------- places ----------
   const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h; };
@@ -142,7 +172,21 @@ const OrderMap = (function () {
     el.innerHTML = '';
     el.classList.add('om');
     const map = L.map(el, { zoomSnap: 0.25, zoomControl: interactive, attributionControl: true, scrollWheelZoom: interactive, wheelPxPerZoomLevel: 90, dragging: interactive, tap: interactive, doubleClickZoom: interactive, boxZoom: false, keyboard: interactive });
-    L.tileLayer(TILES, { attribution: ATTRIB, maxZoom: 19 }).addTo(map);
+    let googleLayer, fallbackLayer;
+    const fallback = () => {
+      if (el._om !== map) return;
+      if (googleLayer) { googleLayer.remove(); googleLayer = null; }
+      if (!fallbackLayer) fallbackLayer = L.tileLayer(TILES, { attribution: ATTRIB, maxZoom: 19 }).addTo(map);
+      el.dataset.mapProvider = 'openstreetmap';
+    };
+    googleFailureHandlers.add(fallback);
+    map.on('unload', () => googleFailureHandlers.delete(fallback));
+    loadGoogleMaps().then(() => {
+      if (el._om !== map) return;
+      googleLayer = L.gridLayer.googleMutant({ type: 'roadmap', maxZoom: 19 });
+      googleLayer.addTo(map);
+      el.dataset.mapProvider = 'google';
+    }).catch(fallback);
     map.attributionControl.setPrefix(false);
     el._om = map;
     // the tile grid needs a size, and cards can grow after the map is made: keep the route framed

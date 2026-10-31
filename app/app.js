@@ -234,7 +234,7 @@
               if (my !== seq) return;
               box._list = d.results || [];
               box.innerHTML = box._list.length
-                ? box._list.map((r, i) => `<button type="button" role="option" data-sg="${i}">${I.pin}<span><b>${esc(r.name)}</b>${r.address ? `<small>${esc(r.address)}</small>` : ''}</span></button>`).join('')
+                ? box._list.map((r, i) => `<button type="button" role="option" data-sg="${i}">${I.pin}<span><b>${esc(r.name)}</b>${r.address ? `<small>${esc(r.address)}</small>` : ''}${r.context ? `<small>${esc(r.context)}</small>` : ''}</span></button>`).join('')
                 : '<div class="sg-note">Олдсонгүй. Газрын зураг дээр товшиж тэмдэглэнэ үү.</div>';
             } catch { if (my === seq) box.innerHTML = '<div class="sg-note">Хайлт ажилласангүй. Газрын зураг дээр товшиж тэмдэглэнэ үү.</div>'; }
           }, 300);
@@ -245,7 +245,7 @@
           const b = e.target.closest('[data-sg]'); if (!b) return;
           const r = box._list[Number(b.dataset.sg)]; if (!r) return;
           seq++; clearTimeout(timer);
-          inp.value = r.address ? `${r.name}, ${r.address}` : r.name;
+          inp.value = (r.address ? `${r.name}, ${r.address}` : r.name) + (r.context ? ` — ${r.context}` : '');
           close();
           const other = picker.get()[k === 'from' ? 'to' : 'from'];
           picker.set(k, r.ll, { fly: !other });   // with both points set, show the whole trip instead

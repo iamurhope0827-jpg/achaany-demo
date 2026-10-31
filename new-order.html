@@ -314,7 +314,7 @@
           if (my !== seq) return;
           box._list = d.results || [];
           box.innerHTML = (d.notice ? `<div class="sg-note" role="status">${esc(d.notice)}</div>` : '') + (box._list.length
-            ? box._list.map((r, i) => `<button type="button" role="option" data-sg="${i}"><b>${esc(r.name)}${['log22', 'overture', 'geofabrik'].includes(r.source) ? `<span class="sg-source">${r.source === 'log22' ? 'Log22' : r.source === 'geofabrik' ? 'OpenStreetMap' : 'Overture Maps'}</span>` : ''}</b>${r.address ? `<small>${esc(r.address)}</small>` : ''}</button>`).join('')
+            ? box._list.map((r, i) => `<button type="button" role="option" data-sg="${i}"><b>${esc(r.name)}${['log22', 'overture', 'geofabrik'].includes(r.source) ? `<span class="sg-source">${r.source === 'log22' ? 'Log22' : r.source === 'geofabrik' ? 'OpenStreetMap' : 'Overture Maps'}</span>` : ''}</b>${r.address ? `<small>${esc(r.address)}</small>` : ''}${r.context ? `<small class="sg-context">${esc(r.context)}</small>` : ''}</button>`).join('')
             : '<div class="sg-note">Олдсонгүй. Газрын зураг дээр дарж тэмдэглэнэ үү.</div>');
         } catch { if (my === seq) box.innerHTML = '<div class="sg-note">Хайлт ажилласангүй. Газрын зураг дээр дарж тэмдэглэнэ үү.</div>'; }
       }, 300);
@@ -325,7 +325,7 @@
       const r = box._list[Number(b.dataset.sg)]; if (!r) return;
       addressVersion[k]++;
       seq++; clearTimeout(timer);
-      inp.value = r.address ? `${r.name}, ${r.address}` : r.name;
+      inp.value = (r.address ? `${r.name}, ${r.address}` : r.name) + (r.context ? ` — ${r.context}` : '');
       close();
       const other = picker.get()[k === 'from' ? 'to' : 'from'];
       picker.set(k, r.ll, { fly: !other });

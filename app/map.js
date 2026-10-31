@@ -149,7 +149,8 @@ const OrderMap = (function () {
     // until the person moves the map themselves
     map.on('dragstart', () => { map._omTouched = true; });
     if (interactive) el.addEventListener('wheel', () => { map._omTouched = true; }, { passive: true });
-    if (window.ResizeObserver) new ResizeObserver(() => { map.invalidateSize(); if (map._omFit && !map._omTouched) fit(map, ...map._omFit); }).observe(el);
+    // (a screen that closed removed its map: its watcher stops instead of resizing a map that is gone)
+    if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (el._om !== map || !map._loaded) { if (el._om !== map) ro.disconnect(); return; } map.invalidateSize(); if (map._omFit && !map._omTouched) fit(map, ...map._omFit); }); ro.observe(el); }
     return map;
   }
   // ---------- traffic ----------

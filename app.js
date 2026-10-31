@@ -323,5 +323,17 @@ const App = (function () {
   };
   const typeLabel = k => (TYPES.find(t => t.key === k) || { label: k }).label;
 
-  return { page, esc, money, initials, today, icons: I, toast, modal, fieldError, formAlert, topup, setUser, setMessagesBadge, loadChatBadge, openNotifications, loadNotifications, TYPES, STATUS, typeLabel, api: (p, b) => Auth.api(p, b) };
+  // when an order is due: express 1 h 30 min after it was placed, normal by 22:30 of the day the driver picks it up
+  function dueText(o, short) {
+    if (o.dueAt) {
+      const d = new Date(o.dueAt), t = new Date(), hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const day = d.toDateString() === t.toDateString() ? '' : (d > t && d.getTime() - t.getTime() < 2 * 86400000 ? 'маргааш ' : `${d.getMonth() + 1}/${d.getDate()} `);
+      return short ? `${day}${hm} хүртэл` : `${day}${hm}-аас өмнө`;
+    }
+    // an express order from before deadlines were saved: 1 h 30 min after it was placed
+    if (o.urgent && o.createdAt) return dueText({ dueAt: new Date(Date.parse(o.createdAt) + 90 * 60000).toISOString() }, short);
+    if (o.urgent) return '1 цаг 30 минутад';
+    return short ? 'авсан өдөртөө 22:30' : 'Жолооч авсан өдрийн 22:30-аас өмнө';
+  }
+  return { dueText, page, esc, money, initials, today, icons: I, toast, modal, fieldError, formAlert, topup, setUser, setMessagesBadge, loadChatBadge, openNotifications, loadNotifications, TYPES, STATUS, typeLabel, api: (p, b) => Auth.api(p, b) };
 })();

@@ -217,7 +217,7 @@
           <li><small>Авах</small>${esc(o.from)}</li>
           <li><small>Хүргэх</small>${esc(o.to)}</li>
         </ol>
-        <p class="job-meta">${[o.customer && esc(o.customer), o.customerPhone && `<a href="tel:${esc(o.customerPhone)}">${esc(o.customerPhone)}</a>`, (o.needs || []).map(esc).join(', '), o.urgent && 'Яаралтай', o.weight && esc(o.weight) + ' кг'].filter(Boolean).join(' · ')}</p>
+        <p class="job-meta">${[o.customer && esc(o.customer), o.customerPhone && `<a href="tel:${esc(o.customerPhone)}">${esc(o.customerPhone)}</a>`, (o.needs || []).map(esc).join(', '), (o.urgent ? 'Шуурхай · ' : 'Хүргэх: ') + esc(App.dueText(o, true)), o.weight && esc(o.weight) + ' кг'].filter(Boolean).join(' · ')}</p>
         ${o.note ? `<p class="job-note">${esc(o.note)}</p>` : ''}
         <footer>
           <div class="job-pay"><b class="num">${money(o.pay.total)}</b><small>${payLine(o.pay)}</small></div>
@@ -254,7 +254,7 @@
         <div class="offer-main">
           <b>${esc(o.title)}</b>
           <small>${esc(o.from)} → ${esc(o.to)}</small>
-          <span class="offer-tags">${o.extraMin != null ? `<span class="chip transit" title="Таны одоогийн замд нэмэгдэх хугацаа">+${Math.max(1, Math.round(o.extraMin))} мин таны замд</span>` : ''}${o.onTheWay && o.extraMin == null ? '<span class="chip transit">Замын дагуу</span>' : ''}${o.urgent ? '<span class="chip waiting">Яаралтай</span>' : ''}${o.zone ? `<span class="chip">${esc(o.zone)}</span>` : ''}${(o.needs || []).map(n => `<span class="chip">${esc(n)}</span>`).join('')}</span>
+          <span class="offer-tags">${o.extraMin != null ? `<span class="chip transit" title="Таны одоогийн замд нэмэгдэх хугацаа">+${Math.max(1, Math.round(o.extraMin))} мин таны замд</span>` : ''}${o.onTheWay && o.extraMin == null ? '<span class="chip transit">Замын дагуу</span>' : ''}${o.urgent ? '<span class="chip waiting">Шуурхай · 1 цаг 30 мин</span>' : ''}${o.zone ? `<span class="chip">${esc(o.zone)}</span>` : ''}${(o.needs || []).map(n => `<span class="chip">${esc(n)}</span>`).join('')}</span>
         </div>
         <div class="offer-side">
           <b class="num">${money(o.pay.total)}</b>
@@ -283,7 +283,7 @@
       <li><span>Суурь хөлс · Үндсэн жолооч</span><b${mine === 'dedicated' ? ' class="good"' : ''}>${money(r.base.dedicated)}</b></li>
       <li><span>Суурь хөлс · Чөлөөт жолооч</span><b${mine === 'crowd' ? ' class="good"' : ''}>${money(r.base.crowd)}</b></li>
       <li><span>Захиалгын үнийн хувь</span><b>${pct(r.rate)}</b></li>
-      <li><span>Яаралтай захиалга</span><b>+${money(r.urgent)}</b></li>
+      <li><span>Шуурхай захиалга</span><b>+${money(r.urgent)}</b></li>${r.lateFee ? `<li><span>Шуурхай хоцорвол</span><b>${r.latePer} мин тутам −${money(r.lateFee)}</b></li>` : ''}
       <li><span>Өдрийн ${r.streakEvery} дахь хүргэлт бүрт</span><b>+${money(r.streak)}</b></li>`;
   }
 

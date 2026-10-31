@@ -1,6 +1,18 @@
 // Log22 Жолооч — driver app: go online, follow the planned stops, take orders, see earnings.
 (() => {
   const { esc, money, initials, $, icons: I, api } = Core;
+  // when an order is due: express 1 h 30 min after it was placed, normal by 22:30 of the day the driver picks it up
+  const dueText = (o, short) => {
+    if (o.dueAt) {
+      const d = new Date(o.dueAt), t = new Date(), hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const day = d.toDateString() === t.toDateString() ? '' : (d.getTime() - t.getTime() < 2 * 86400000 && d > t ? 'маргааш ' : `${d.getMonth() + 1}/${d.getDate()} `);
+      return short ? `${day}${hm} хүртэл` : `${day}${hm}-аас өмнө`;
+    }
+    // an express order from before deadlines were saved: 1 h 30 min after it was placed
+    if (o.urgent && o.createdAt) return dueText({ dueAt: new Date(Date.parse(o.createdAt) + 90 * 60000).toISOString() }, short);
+    if (o.urgent) return '1 цаг 30 минутад';
+    return short ? 'авсан өдөртөө 22:30' : 'Жолооч авсан өдрийн 22:30-аас өмнө';
+  };
   const KIND = { dedicated: 'Үндсэн жолооч', crowd: 'Чөлөөт жолооч' };
   const DISTRICTS = ['Баянгол', 'Баянзүрх', 'Сонгинохайрхан', 'Сүхбаатар', 'Хан-Уул', 'Чингэлтэй', 'Налайх', 'Багануур', 'Багахангай'];
   const VEHICLES = ['Мопед', 'Суудлын автомашин', 'Портер'];
@@ -176,7 +188,7 @@
         sheet.innerHTML = `${consentCard}
           <div class="next-kind"><span class="tag ${pickup ? 'accent' : 'live'}">${pickup ? 'Ачаа авах' : 'Хүргэх'} · № ${esc(o.no)}</span><span class="sm faint">${stops.length} зогсоол</span></div>
           <div class="next-addr">${esc(s.address || (pickup ? o.from : o.to))}</div>
-          <div class="next-meta">${s.etaMin != null ? `<span>${I.clock}≈ ${mins(s.etaMin)} мин</span>` : ''}${pickup && s.waitMin ? `<span>Хүлээлт ≈ ${mins(s.waitMin)} мин</span>` : ''}<span>${I.box}${esc(o.title)}</span>${o.urgent ? '<span class="tag warn">Яаралтай</span>' : ''}</div>
+          <div class="next-meta">${s.etaMin != null ? `<span>${I.clock}≈ ${mins(s.etaMin)} мин</span>` : ''}${pickup && s.waitMin ? `<span>Хүлээлт ≈ ${mins(s.waitMin)} мин</span>` : ''}<span>${I.box}${esc(o.title)}</span><span class="tag ${o.urgent ? 'warn' : ''}">${o.urgent ? 'Шуурхай · ' : ''}${esc(dueText(o, true))}</span></div>
           ${pickup && o.pickup === 'door' ? `<div class="handoff door">${I.home}<span><b>Орж авна</b><small>Захиалагчийн хаалган дээр очиж ачааг авна. Хаягийн дэлгэрэнгүйг харна уу.</small></span></div>` : ''}
           <div class="cust"><span class="avatar">${esc(initials(o.customer))}</span><span class="grow"><b>${esc(o.customer || 'Захиалагч')}</b><br><span class="sm muted">${o.note ? esc(o.note) : 'Захиалагч'}</span></span>
             ${o.customerPhone ? `<a class="round-btn" href="tel:${esc(o.customerPhone)}" aria-label="Залгах">${I.phone}</a>` : ''}<button class="round-btn" data-chat="${esc(o.no)}" aria-label="Чат">${I.chat}</button></div>
@@ -230,7 +242,7 @@
         list.innerHTML = !d.driver.online ? `<div class="empty"><div class="ico">${I.wheel}</div><h3>Та офлайн байна</h3><p>Захиалга авахын тулд эхлээд онлайн болно уу.</p><button class="btn btn-online" data-online>Онлайн болох</button></div>`
           : items.length ? items.map(o => `<div class="card offer${o.fits ? '' : ' no-fit'}">
               <div class="top"><div style="min-width:0"><b>${esc(o.title)}</b><div class="sm muted">${esc(o.from)} → ${esc(o.to)}</div></div><div class="pay">${money(o.pay.total)}</div></div>
-              <div class="chips">${o.extraMin != null ? `<span class="tag live">+${mins(o.extraMin)} мин таны замд</span>` : ''}${o.urgent ? '<span class="tag warn">Яаралтай</span>' : ''}${o.zone ? `<span class="tag">${esc(o.zone)}</span>` : ''}${(o.needs || []).map(n => `<span class="tag">${esc(n)}</span>`).join('')}</div>
+              <div class="chips">${o.extraMin != null ? `<span class="tag live">+${mins(o.extraMin)} мин таны замд</span>` : ''}${o.urgent ? '<span class="tag warn">Шуурхай · 1 цаг 30 мин</span>' : ''}${o.zone ? `<span class="tag">${esc(o.zone)}</span>` : ''}${(o.needs || []).map(n => `<span class="tag">${esc(n)}</span>`).join('')}</div>
               ${o.fits ? `<button class="btn btn-primary btn-block" data-take="${esc(o.no)}">Авах</button>` : '<span class="sm faint">Өөр тээврийн хэрэгсэл хэрэгтэй</span>'}</div>`).join('')
           : `<div class="empty"><div class="ico">${I.box}</div><h3>Нээлттэй захиалга алга</h3><p>Шинэ захиалга орж ирэхэд энд шууд гарч ирнэ.</p></div>`;
       }
@@ -262,7 +274,7 @@
           <div class="section-title">Сүүлийн хүргэлтүүд</div>
           ${d.recent.length ? `<div class="list">${d.recent.map(o => `<div class="row"><span class="ico ok">${I.check}</span><span class="grow"><span class="title" style="display:block">${esc(o.title)}</span><span class="sub" style="display:block">${esc(o.deliveredAt)} · № ${esc(o.no)}</span></span><b class="num" style="color:var(--positive)">+${money(o.pay.total)}</b></div>`).join('')}</div>`
             : `<div class="empty"><div class="ico">${I.coins}</div><h3>Хүргэлт алга</h3><p>Эхний хүргэлтээ дуусгахад орлого энд бичигдэнэ.</p></div>`}
-          <div class="card pad kv sm"><div><span>Суурь хөлс · ${esc(KIND[d.driver.kind] || '')}</span><span>${money(d.rules.base[d.driver.kind] || 0)}</span></div><div><span>Захиалгын үнийн хувь</span><span>${Math.round(d.rules.rate * 100)}%</span></div><div><span>Яаралтай захиалга</span><span>+${money(d.rules.urgent)}</span></div></div>`;
+          <div class="card pad kv sm"><div><span>Суурь хөлс · ${esc(KIND[d.driver.kind] || '')}</span><span>${money(d.rules.base[d.driver.kind] || 0)}</span></div><div><span>Захиалгын үнийн хувь</span><span>${Math.round(d.rules.rate * 100)}%</span></div><div><span>Шуурхай захиалга</span><span>+${money(d.rules.urgent)}</span></div>${d.rules.lateFee ? `<div><span>Шуурхай хоцорвол</span><span>${d.rules.latePer} мин тутам −${money(d.rules.lateFee)}</span></div>` : ''}</div>`;
       }
       return subscribe(draw);
     },
@@ -295,7 +307,7 @@
             <button class="row" data-wallet><span class="ico ok">${I.wallet}</span><span class="grow"><span class="b" style="display:block">Дансны үлдэгдэл</span><span class="sub" style="display:block">Хүргэлт бүрийн орлого шууд орно</span></span><b class="num">${money(u.wallet)}</b></button>
             <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
             <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
-          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.3.3</p></div></div>`;
+          </div><p class="sm faint" style="text-align:center">Log22 Жолооч · хувилбар 0.3.4</p></div></div>`;
       }
       draw();
       api('/api/me').then(() => draw()).catch(() => { });

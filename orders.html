@@ -220,7 +220,8 @@
         </div>
         <ul class="kv">
           ${kv('Авах өдөр', esc(o.pickupDate || 'Тохиролцоно'))}
-          ${kv('Шаардлага', esc((o.needs || []).join(', ') || '—') + (o.urgent ? ' · Яаралтай' : ''))}
+          ${kv('Шаардлага', esc((o.needs || []).join(', ') || '—'))}
+          ${kv(o.urgent ? 'Шуурхай · хүргэх' : 'Хүргэх хугацаа', esc(App.dueText(o)) + (o.status === 'done' && typeof o.onTime === 'boolean' ? (o.onTime ? ' · хугацаандаа' : ` · ${o.lateMin || ''} мин хоцорсон`) : ''))}
           ${kv('Жин', o.weight ? esc(o.weight) + ' кг' : '—')}
           ${o.size ? kv('Овор', esc(SIZE[o.size] || o.size)) : ''}
           ${o.fare ? kv('Үнийн задаргаа', `${esc(o.fare.km)} км = ${money(o.fare.distance)} + дуудлага ${money(o.fare.call)}${o.fare.weight ? ` + жин ${money(o.fare.weight)}` : ''} = ${money(o.fare.system)}${o.fare.extra ? ` · нэмсэн +${money(o.fare.extra)}` : ''}`) : ''}

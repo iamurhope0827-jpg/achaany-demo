@@ -16,7 +16,38 @@
 <body data-page="index">
 <div class="main">
   <main class="content">
-    <!-- Opening band: who, what needs you, the four numbers, and the delivery on the road right now -->
+    <!-- The control panel: four numbers that move every day, each with its last seven days -->
+    <header class="dash-head">
+      <div>
+        <h1>Хяналтын самбар <span class="live-badge" title="Мэдээлэл автоматаар шинэчлэгдэнэ">шууд</span></h1>
+        <p>Таны ачаа, хүргэлтийн нэгдсэн хяналт.</p>
+      </div>
+      <span class="date-chip" id="today"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span id="today-text"></span></span>
+    </header>
+    <section class="kpis" aria-label="Гол үзүүлэлт">
+      <article class="kpi blue">
+        <header><span>Идэвхтэй ачаа</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg></header>
+        <div class="kpi-body"><b class="num" id="kp-active">—</b><span class="spark" id="sp-active" aria-hidden="true"></span></div>
+        <p class="kpi-note" id="kn-active">&nbsp;</p>
+      </article>
+      <article class="kpi blue">
+        <header><span>Замд яваа ачаа</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></header>
+        <div class="kpi-body"><b class="num" id="kp-transit">—</b><span class="spark" id="sp-transit" aria-hidden="true"></span></div>
+        <p class="kpi-note" id="kn-transit">&nbsp;</p>
+      </article>
+      <article class="kpi green">
+        <header><span>Өнөөдөр хүргэсэн</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></header>
+        <div class="kpi-body"><b class="num" id="kp-done">—</b><span class="spark" id="sp-done" aria-hidden="true"></span></div>
+        <p class="kpi-note" id="kn-done">&nbsp;</p>
+      </article>
+      <article class="kpi green">
+        <header><span>Хугацаандаа хүргэлт</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg></header>
+        <div class="kpi-body"><b class="num" id="kp-ontime">—</b><span class="spark" id="sp-ontime" aria-hidden="true"></span></div>
+        <p class="kpi-note" id="kn-ontime">&nbsp;</p>
+      </article>
+    </section>
+
+    <!-- What needs you, and the delivery on the road right now -->
     <section class="hero-band">
       <div class="hero-copy">
         <h1 id="greeting">Нүүр</h1>
@@ -26,12 +57,6 @@
           <a href="orders.html" class="btn btn-onteal">Бүх захиалга</a>
         </div>
         <div class="hero-todo" id="hero-todo" aria-label="Таны анхаарах захиалга"></div>
-        <dl class="hero-stats">
-          <div><dt>Идэвхтэй</dt><dd class="num" id="k-active">0</dd></div>
-          <div><dt>Ирсэн санал</dt><dd class="num" id="k-offers">0</dd></div>
-          <div><dt>Хүргэгдсэн</dt><dd class="num" id="k-done">0</dd></div>
-          <div><dt>Хэтэвч</dt><dd class="num" id="k-wallet">0₮</dd></div>
-        </dl>
       </div>
       <article class="live-card" id="live-card">
         <header><span class="live-dot" aria-hidden="true"></span><b>Одоо замдаа</b><span class="hint" id="live-count"></span></header>
@@ -123,7 +148,6 @@
     const w = u.wallet || 0;
     $('balance').textContent = money(w);
     $('balance').classList.toggle('zero', !w);
-    $('k-wallet').textContent = money(w);
     $('plan-line').textContent = u.plan ? `${u.plan} багц · ${u.planUntil} хүртэл` : 'Гишүүнчлэлийн багц аваагүй';
     const on = u.settings ? u.settings.autopay : true;
     $('autopay').classList.toggle('off', !on);
@@ -189,12 +213,56 @@
   }
 
   // the orders that need the customer, most urgent first: offers to choose from, then deliveries on the road
+  // ----- the four numbers at the top, each with its last seven days -----
+  const WEEKDAY = ['Ням', 'Даваа', 'Мягмар', 'Лхагва', 'Пүрэв', 'Баасан', 'Бямба'];
+  $('today-text').textContent = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')} · ${WEEKDAY[now.getDay()]}`;
+  const week = [...Array(7)].map((_, i) => { const d = new Date(now); d.setDate(now.getDate() - 6 + i); return ymd(d); });
+  const prevWeek = [...Array(7)].map((_, i) => { const d = new Date(now); d.setDate(now.getDate() - 13 + i); return ymd(d); });
+  const histAt = (o, st) => { const h = (o.history || []).find(x => x.status === st); return h ? String(h.at || '') : ''; };
+  const deliveredDay = o => String(o.deliveredAt || (o.deliveredIso && ymd(new Date(o.deliveredIso))) || histAt(o, 'done')).slice(0, 10);
+  const perDay = (list, dayOf) => week.map(d => list.filter(o => dayOf(o) === d).length);
+  function spark(id, values, fmt) {
+    const max = Math.max(1, ...values.filter(v => v != null));
+    $(id).innerHTML = values.map((v, i) => `<i class="${i === values.length - 1 ? 'now' : ''}${v == null ? ' none' : ''}" style="height:${v == null ? 8 : Math.max(8, Math.round(v / max * 100))}%" title="${week[i].slice(5).replace('-', '.')}: ${v == null ? '—' : fmt ? fmt(v) : v}"></i>`).join('');
+  }
+  function note(id, text, tone) { const el = $(id); el.textContent = text; el.className = 'kpi-note' + (tone ? ' ' + tone : ''); }
+  const signed = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + Math.abs(n);
+  function renderKpis(lanes) {
+    const today = week[6], yesterday = week[5];
+    // active: everything not finished; the bars are orders created each day
+    const created = perDay(orders, o => String(o.date || '').slice(0, 10));
+    $('kp-active').textContent = lanes.waiting.length + lanes.transit.length;
+    spark('sp-active', created);
+    const dc = created[6] - created[5];
+    note('kn-active', dc ? `Өчигдрөөс ${signed(dc)} шинэ ачаа` : `Өнөөдөр ${created[6]} шинэ ачаа`, dc > 0 ? 'blue' : '');
+    // on the road: the bars are pickups started each day
+    const drivers = new Set(lanes.transit.map(o => o.driver || o.driverName).filter(Boolean)).size;
+    $('kp-transit').textContent = lanes.transit.length;
+    spark('sp-transit', perDay(orders, o => histAt(o, 'transit').slice(0, 10)));
+    note('kn-transit', lanes.transit.length ? `${drivers || lanes.transit.length} жолооч зөөж байна` : 'Одоогоор замд ачаа алга', lanes.transit.length ? 'blue' : '');
+    // delivered today
+    const delivered = perDay(lanes.done, deliveredDay);
+    $('kp-done').textContent = delivered[6];
+    spark('sp-done', delivered);
+    const weekDone = delivered.reduce((a, b) => a + b, 0);
+    note('kn-done', weekDone ? `Энэ 7 хоногт ${weekDone} · өчигдөр ${delivered[5]}` : 'Энэ 7 хоногт хүргэлт алга', delivered[6] ? 'green' : '');
+    // on time: delivered no later than promised when the driver took the order (the last seven days)
+    const timed = lanes.done.filter(o => typeof o.onTime === 'boolean');
+    const rate = days => { const l = timed.filter(o => days.includes(deliveredDay(o))); return l.length ? l.filter(o => o.onTime).length / l.length * 100 : null; };
+    const r = rate(week), rp = rate(prevWeek);
+    $('kp-ontime').textContent = r == null ? '—' : `${r.toFixed(r === 100 ? 0 : 1)}%`;
+    spark('sp-ontime', week.map(d => rate([d])), v => `${Math.round(v)}%`);
+    if (r == null) note('kn-ontime', 'Хугацаа тооцсон хүргэлт хараахан алга', '');
+    else if (rp == null) note('kn-ontime', `7 хоногт ${timed.filter(o => week.includes(deliveredDay(o))).length} хүргэлтээс`, 'green');
+    else { const dd = Math.round((r - rp) * 10) / 10; note('kn-ontime', `Өмнөх 7 хоногоос ${dd >= 0 ? '+' : '−'}${Math.abs(dd)}%`, dd >= 0 ? 'green' : 'red'); }
+  }
+
   function renderTodo(lanes) {
     const rows = [
       ...lanes.waiting.filter(o => o.offers).map(o => ({ o, tag: 'waiting', text: `${o.offers} санал ирсэн`, act: 'Санал сонгох' })),
       ...lanes.transit.map(o => ({ o, tag: 'transit', text: o.stage === 'picked' ? 'Ачаа замдаа' : 'Жолооч ачаа авахаар явж байна', act: 'Харах' })),
       ...lanes.waiting.filter(o => !o.offers).map(o => ({ o, tag: 'idle', text: 'Жолооч хайж байна', act: 'Харах' })),
-    ].slice(0, 3);
+    ].slice(0, 4);
     const box = $('hero-todo');
     box.innerHTML = rows.length ? `<h2>Таны анхаарах</h2>` + rows.map(({ o, tag, text, act }) => `
       <a class="todo-row" href="orders.html?open=${encodeURIComponent(o.no)}">
@@ -227,9 +295,7 @@
 
     const pick = lanes.waiting.filter(o => o.offers);
     const offers = lanes.waiting.reduce((s, o) => s + (o.offers || 0), 0);
-    $('k-active').textContent = lanes.waiting.length + lanes.transit.length;
-    $('k-offers').textContent = offers;
-    $('k-done').textContent = lanes.done.length;
+    renderKpis(lanes);
     $('finding').textContent = !orders.length ? 'Одоогоор захиалга алга — анхны ачаагаа бүртгээд жолоочдоос үнийн санал аваарай.'
       : pick.length ? `${pick.length} захиалгад ${offers} санал ирж, таны сонголтыг хүлээж байна${lanes.transit.length ? ` · ${lanes.transit.length} ачаа замдаа` : ''}.`
       : lanes.transit.length ? `${lanes.transit.length} ачаа замдаа явж байна.` : 'Идэвхтэй хүргэлт алга — бүх захиалга хаагдсан.';

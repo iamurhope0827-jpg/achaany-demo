@@ -38,6 +38,22 @@ const OrderMap = (function () {
   }
   const inService = p => validLL(p) && km(p, UB) < 150;
 
+  // Ignore address punctuation and Mongolian building suffixes when searching.
+  function normalizeQuery(value) {
+    let q = String(value || '').normalize('NFKC').toLocaleLowerCase('mn')
+      .replace(/хан[\s‐‑–—-]+уул/gu, 'хан-уул');
+    // JavaScript word boundaries do not recognize Cyrillic letters.
+    q = q.replace(/(\d+[а-яa-z]?(?:[/]\d+[а-яa-z]?)?)\s*-?\s*(?:р|дугаар|дүгээр)\s*байр(?=\s|[,.;]|$)/giu, '$1')
+      .replace(/(\d+[а-яa-z]?(?:[/]\d+[а-яa-z]?)?)\s+байр(?=\s|[,.;]|$)/giu, '$1');
+    const streetAddress = /гудамж/u.test(q) && /\d/u.test(q);
+    if (streetAddress) q = q.replace(/(?:хан-уул|баянзүрх|баянгол|сүхбаатар|чингэлтэй|сонгинохайрхан)(?=\s|[,.;]|$)\s*(?:дүүрэг)?/gu, ' ');
+    return q.replace(/[,.;]/g, ' ').replace(/(?:дүүрэг|гудамж)(?=\s|$)/gu, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function buildingNumber(value) {
+    const number = String(value || '').trim().replace(/\s*-?\s*(?:р|дугаар|дүгээр)?\s*байр$/iu, '').trim();
+    return number ? `${number}-р байр` : '';
+  }
+
   // ---------- roads ----------
   // Our server answers first (server.ps1 /api/route): Mapbox traffic when it has a token, blended with our
   // drivers' measured speeds and the correction learned from past deliveries. Without the server (the
@@ -133,7 +149,8 @@ const OrderMap = (function () {
     // until the person moves the map themselves
     map.on('dragstart', () => { map._omTouched = true; });
     if (interactive) el.addEventListener('wheel', () => { map._omTouched = true; }, { passive: true });
-    if (window.ResizeObserver) new ResizeObserver(() => { map.invalidateSize(); if (map._omFit && !map._omTouched) fit(map, ...map._omFit); }).observe(el);
+    // (a screen that closed removed its map: its watcher stops instead of resizing a map that is gone)
+    if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (el._om !== map || !map._loaded) { if (el._om !== map) ro.disconnect(); return; } map.invalidateSize(); if (map._omFit && !map._omTouched) fit(map, ...map._omFit); }); ro.observe(el); }
     return map;
   }
   // ---------- traffic ----------
@@ -260,14 +277,15 @@ const OrderMap = (function () {
     let active = 'from';
     let line = null;
     const accent = css('--accent') || '#8a3d8f';
-    let traffic = null;
+    let traffic = null, redrawVersion = 0;
     async function redraw() {
+      const version = ++redrawVersion;
       if (line) { line.remove(); line = null; }
       if (traffic) { traffic.remove(); traffic = null; }
       let info = null;
       if (pts.from && pts.to) {
         const r = await route([pts.from, pts.to]);
-        if (!pts.from || !pts.to) return;
+        if (version !== redrawVersion || !pts.from || !pts.to) return;
         line = L.polyline(r.coords, { color: accent, weight: 4, opacity: 0.7, lineCap: 'round' }).addTo(map);
         traffic = trafficLayer(map, r.coords, r.congestion);
         info = { km: r.km, min: r.min, road: r.road, source: r.source, traffic: r.traffic };
@@ -306,14 +324,23 @@ const OrderMap = (function () {
 
   // the street address at a point, from OpenStreetMap's Nominatim (used once per placed pin)
   async function addressAt(ll) {
+    // Shared by the web form and native apps. The API key is held by server.ps1.
+    const client = typeof Core !== 'undefined' ? Core : (viaServer() ? Auth : null);
+    if (client) {
+      try { return (await client.api('/api/reverse-geocode', { ll })).address || ''; }
+      catch { /* Keep address lookup available when the demo backend is offline. */ }
+    }
+    const ctl = new AbortController();
+    const timeout = setTimeout(() => ctl.abort(), 8000);
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=mn&lat=${ll[0]}&lon=${ll[1]}`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=mn&lat=${ll[0]}&lon=${ll[1]}`, { signal: ctl.signal });
+      if (!r.ok) return "";
       const j = await r.json();
       const a = j.address || {};
-      const parts = [a.city_district || a.suburb || a.county, a.quarter || a.neighbourhood, a.road, a.house_number].filter(Boolean);
+      const parts = [a.city_district || a.suburb || a.county, a.quarter || a.neighbourhood, a.road, buildingNumber(a.house_number)].filter(Boolean);
       return parts.join(', ') || j.display_name || '';
-    } catch { return ''; }
+    } catch { return ''; } finally { clearTimeout(timeout); }
   }
 
-  return { order, stops, city, picker, addressAt, districtOf, fromOf, toOf, km, inService };
+  return { order, stops, city, picker, addressAt, districtOf, fromOf, toOf, km, inService, normalizeQuery, buildingNumber };
 })();

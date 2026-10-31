@@ -33,14 +33,21 @@ const MockApi = (function () {
   const MAX_ACTIVE = 4;
   // what a delivery costs, as in server.ps1 ($Fare)
   const FARE = {
-    perKm: 2000, call: 5000, door: 1000, round: 500, boosts: [2500, 5000, 7500],
+    perKm: 2000, call: 5000, door: 1000, express: 5000, expressMin: 90, normalBy: '22:30', lateFee: 1000, latePer: 30, round: 500, boosts: [2500, 5000, 7500],
     weight: [{ upTo: 10, fee: 0 }, { upTo: 30, fee: 1500 }, { upTo: 100, fee: 4000 }, { upTo: 1000000, fee: 8000 }],
     size: { small: { label: 'Жижиг', hint: 'Бичиг баримт, жижиг илгээмж', fee: 0 }, medium: { label: 'Дунд', hint: 'Хайрцаг, цүнх', fee: 2000 }, large: { label: 'Том', hint: 'Тавилга, гэр ахуйн техник', fee: 5000 } },
   };
-  function fareFor(km, weight, size) {
+  function fareFor(km, weight, size, express) {
     const w = FARE.weight.find(t => weight <= t.upTo).fee + FARE.size[size].fee;
-    const distance = Math.round(km * FARE.perKm / 100) * 100;
-    return { km, perKm: FARE.perKm, distance, call: FARE.call, weight: w, door: FARE.door, system: distance + FARE.call + w + FARE.door, extra: 0 };
+    const distance = Math.round(km * FARE.perKm / 100) * 100, x = express ? FARE.express : 0;
+    return { km, perKm: FARE.perKm, distance, call: FARE.call, weight: w, door: FARE.door, express: x, system: distance + FARE.call + w + FARE.door + x, extra: 0 };
+  }
+  // a normal delivery is due at 22:30 of the day the driver picks it up (the next day when picked up later)
+  function normalDue() {
+    const [h, mi] = FARE.normalBy.split(':').map(Number), d = new Date();
+    const due = new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, mi);
+    if (d > due) due.setDate(due.getDate() + 1);
+    return due.toISOString();
   }
   function kmBetween(a, b) {
     const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
@@ -165,7 +172,16 @@ const MockApi = (function () {
     const nth = load().orders.filter(x => x.driver === drv.email && x.status === 'done' && String(x.deliveredAt || '').startsWith(today)).length + 1;
     const q = payQuote(o, drv.driverKind);
     if (nth % PAY.streakEvery === 0) { q.streak = PAY.streak; q.total += PAY.streak; }
-    Object.assign(o, { status: 'done', done: o.total, stage: 'delivered', pay: q, deliveredAt: nowLocal() });
+    Object.assign(o, { status: 'done', done: o.total, stage: 'delivered', pay: q, deliveredAt: nowLocal(), deliveredIso: nowIso() });
+    // on time against the deadline; a late express costs the driver lateFee for every started latePer minutes
+    if (o.dueAt) {
+      const late = (Date.now() - Date.parse(o.dueAt)) / 60000;
+      o.onTime = late <= 0;
+      if (late > 0) {
+        o.lateMin = Math.ceil(late);
+        if (o.urgent) { q.late = Math.min(Math.ceil(late / FARE.latePer) * FARE.lateFee, q.total); q.total -= q.late; }
+      }
+    }
     addHistory(o, 'done', 'Хүргэгдсэн');
     drv.wallet = (drv.wallet || 0) + q.total;
     addTx(drv.email, 'earning', `Хүргэлт № ${o.no}`, q.total, 'Хүргэлтийн орлого', drv.wallet);
@@ -182,7 +198,7 @@ const MockApi = (function () {
     const active = mine.filter(o => o.status === 'transit').sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1)).map(o => {
       const c = findUser(o.owner);
       return { no: o.no, title: o.title, from: o.from, to: o.to, needs: o.needs || [], urgent: !!o.urgent, weight: o.weight, price: o.price, note: o.note, pickupDate: o.pickupDate,
-        stage: o.stage, stageAt: o.stageAt, assignedBy: o.assignedBy, pay: o.pay, customer: o.creator, customerPhone: (c && c.phone) || '', fromLL: o.fromLL, toLL: o.toLL, pickup: o.pickup || 'out' };
+        stage: o.stage, stageAt: o.stageAt, assignedBy: o.assignedBy, pay: o.pay, customer: o.creator, customerPhone: (c && c.phone) || '', fromLL: o.fromLL, toLL: o.toLL, pickup: o.pickup || 'out', dueAt: o.dueAt, createdAt: o.createdAt };
     });
     const done = mine.filter(o => o.status === 'done').sort((a, b) => (String(a.deliveredAt) < String(b.deliveredAt) ? 1 : -1));
     const today = nowLocal().slice(0, 10);
@@ -205,7 +221,7 @@ const MockApi = (function () {
       today: paySum(todays), week: paySum(done.filter(o => day(o) >= weekStart)), todayCount: todays.length,
       days: [6, 5, 4, 3, 2, 1, 0].map(n => { const t = new Date(); t.setDate(t.getDate() - n); const date = nowLocal(t).slice(0, 10); return { date, total: paySum(done.filter(o => day(o) === date)).total }; }),
       zoneQueue: d.orders.filter(o => o.status === 'waiting' && !o.driver && district(o.from) === me.zone).length,
-      rules: { base: PAY.base, rate: PAY.rate, urgent: PAY.urgent, streakEvery: PAY.streakEvery, streak: PAY.streak, maxActive: MAX_ACTIVE },
+      rules: { base: PAY.base, rate: PAY.rate, urgent: PAY.urgent, streakEvery: PAY.streakEvery, streak: PAY.streak, maxActive: MAX_ACTIVE, lateFee: FARE.lateFee, latePer: FARE.latePer },
       districts: DISTRICTS, vehicles: VEHICLES,
     });
   }
@@ -390,7 +406,7 @@ const MockApi = (function () {
           const straight = kmBetween(fromLL, toLL);
           let km = Number(b.km) || 0;
           if (km < straight - 0.05 || km > straight * 3 + 1) km = straight * 1.3;
-          fare = fareFor(Math.round(km * 10) / 10, Number(b.weight) || 0, size);
+          fare = fareFor(Math.round(km * 10) / 10, Number(b.weight) || 0, size, !!b.urgent);
           if (price < fare.system) fail(400, `Үнэ системийн тооцоолсон ${fare.system.toLocaleString('en-US')}₮-өөс бага байж болохгүй.`, 'price');
           fare.extra = price - fare.system;
         }
@@ -398,6 +414,7 @@ const MockApi = (function () {
           urgent: !!b.urgent, weight: Number(b.weight) || 0, price, note: trimmed(b.note), pickupDate: trimmed(b.pickupDate), fromLL, toLL, size, pickup: 'door', fare, status: 'waiting',
           views: 0, offers: 0, done: 0, total: 1, creator: me.name, date: nowLocal(), createdAt: nowIso(), history: [] };
         addHistory(o, 'waiting', 'Захиалга үүслээ');
+        if (o.urgent) o.dueAt = new Date(Date.parse(o.createdAt) + FARE.expressMin * 60000).toISOString();
         d.orders.push(o);
         note(me.email, 'Шинэ захиалга үүслээ', `№ ${o.no} · ${title} — жолоочдын санал удахгүй ирнэ.`, 'info', 'orders.html');
         dispatch();
@@ -560,6 +577,7 @@ const MockApi = (function () {
             if (!mineActive) fail(404, 'Идэвхтэй захиалга олдсонгүй.');
             if (o.stage === 'assigned') {
               o.stage = 'picked'; o.stageAt = nowIso(); addHistory(o, 'transit', 'Жолооч ачааг авлаа');
+              if (!o.urgent) o.dueAt = normalDue();
               note(o.owner, 'Ачаа замдаа гарлаа', `№ ${o.no} · ${o.title} — ${me.name} хүргэхээр явж байна.`, 'info', 'orders.html');
             } else completeDelivery(o, me);
             break;

@@ -26,9 +26,21 @@
   };
   // the driver always comes in for the item; its fee is part of every price
   const PICKUP_HTML = `<div class="door-note"><span class="pk-ico"><svg viewBox="0 0 24 24"><path d="M5 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17"/><path d="M3 21h16"/><circle cx="13" cy="12" r=".8"/><path d="M19 8v6M17 11l2 3 2-3"/></svg></span><span class="grow"><b>Жолооч орж авна</b><small>Жолооч дотогш орж ачааг тань дээрээс авна</small></span><em data-door-fee></em></div>`;
+  // when an order is due: express 1 h 30 min after it was placed, normal by 22:30 of the day the driver picks it up
+  const dueText = (o, short) => {
+    if (o.dueAt) {
+      const d = new Date(o.dueAt), t = new Date(), hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const day = d.toDateString() === t.toDateString() ? '' : (d.getTime() - t.getTime() < 2 * 86400000 && d > t ? 'маргааш ' : `${d.getMonth() + 1}/${d.getDate()} `);
+      return short ? `${day}${hm} хүртэл` : `${day}${hm}-аас өмнө`;
+    }
+    // an express order from before deadlines were saved: 1 h 30 min after it was placed
+    if (o.urgent && o.createdAt) return dueText({ dueAt: new Date(Date.parse(o.createdAt) + 90 * 60000).toISOString() }, short);
+    if (o.urgent) return '1 цаг 30 минутад';
+    return short ? 'авсан өдөртөө 22:30' : 'Жолооч авсан өдрийн 22:30-аас өмнө';
+  };
   const greeting = () => { const h = new Date().getHours(); return h < 5 ? 'Сайн байна уу' : h < 12 ? 'Өглөөний мэнд' : h < 18 ? 'Өдрийн мэнд' : 'Оройн мэнд'; };
   const fmt = n => Math.round(n).toLocaleString('en-US');
-  const killMap = el => { el && el.querySelectorAll('.om').forEach(m => { if (m._om) { m._om.remove(); m._om = null; } }); };
+  const killMap = el => { el && el.querySelectorAll('.om').forEach(m => { if (m._om) { m._om.stop(); m._om.remove(); m._om = null; } }); };
 
   // ---------- sign in / register ----------
   function authScreen(mode) {
@@ -176,7 +188,7 @@
               <div class="input"><input id="n-title" maxlength="80" placeholder="Эсвэл өөрөө бичнэ үү" /></div><span class="err"></span></div>
             <div class="field"><label>Овор хэмжээ</label><div class="size-pick" data-sizes></div></div>
             <div class="field" data-field="weight"><label for="n-weight">Жин</label><div class="input"><input id="n-weight" inputmode="decimal" placeholder="0" /><span class="faint">кг</span></div><span class="err"></span></div>
-            <button type="button" class="toggle-row" data-urgent aria-pressed="false"><span class="ico warn">${I.bolt}</span><span class="grow"><b>Яаралтай</b><br><span class="sm muted">Жолооч түрүүлж авна</span></span><span class="switch" aria-hidden="true"></span></button>
+            <button type="button" class="toggle-row" data-urgent aria-pressed="false"><span class="ico warn">${I.bolt}</span><span class="grow"><b>Шуурхай хүргэлт</b><br><span class="sm muted" data-speed-note>Энгийн: авсан өдөртөө 22:30-аас өмнө</span></span><span class="switch" aria-hidden="true"></span></button>
             <div class="field"><label>Тээврийн хэрэгсэл</label><div class="chips" data-needs>${['Мопед', 'Суудлын автомашин', 'Портер', 'Ачигч'].map(n => `<button type="button" class="chip" data-need="${n}" aria-pressed="false">${n}</button>`).join('')}</div></div>
             <div class="field"><label for="n-note">Жолоочид тэмдэглэл</label><div class="input"><textarea id="n-note" maxlength="400" placeholder="Жишээ: 2 давхарт, хэврэг ачаа"></textarea></div></div>
             <div class="fare" data-field="price"><div class="fare-head"><b>Хүргэлтийн төлбөр</b><span class="sm muted" data-trip></span></div>
@@ -310,7 +322,12 @@
       if (params.kind) { const pre = el.querySelector(`[data-kind="${CSS.escape(params.kind)}"]`); if (pre) pre.click(); }
       $(el, '#n-title').addEventListener('input', () => { el.querySelectorAll('[data-kind]').forEach(x => x.setAttribute('aria-pressed', 'false')); validate(); });
       $(el, '[data-needs]').addEventListener('click', e => { const b = e.target.closest('[data-need]'); if (b) b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); });
-      $(el, '[data-urgent]').addEventListener('click', e => { urgent = !urgent; const b = e.currentTarget; b.setAttribute('aria-pressed', String(urgent)); $(b, '.switch').setAttribute('aria-checked', String(urgent)); });
+      $(el, '[data-urgent]').addEventListener('click', e => { urgent = !urgent; const b = e.currentTarget; b.setAttribute('aria-pressed', String(urgent)); $(b, '.switch').setAttribute('aria-checked', String(urgent)); speedNote(); renderFare(); });
+      // one line under the switch: what the chosen speed means
+      function speedNote() {
+        const t = tariff || { expressMin: 90, express: 5000, normalBy: '22:30' };
+        $(el, '[data-speed-note]').textContent = urgent ? `${Math.floor(t.expressMin / 60)} цаг ${t.expressMin % 60} минутад · +${fmt(t.express)}₮` : `Энгийн: авсан өдөртөө ${t.normalBy}-аас өмнө`;
+      }
       $(el, '#n-weight').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^\d.]/g, ''); renderFare(); });
       $(el, '[data-boosts]').addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b || !tariff || !trip) return;
@@ -321,8 +338,8 @@
       function system() {
         const km = Math.round(trip.km * 10) / 10, kg = Number($(el, '#n-weight').value) || 0;
         const w = tariff.weight.find(t => kg <= t.upTo).fee, s = tariff.size[size].fee, dist = Math.round(km * tariff.perKm / 100) * 100;
-        const door = pickup === 'door' ? (tariff.door || 0) : 0;
-        return { km, dist, extra: w + s, door, total: dist + tariff.call + w + s + door };
+        const door = pickup === 'door' ? (tariff.door || 0) : 0, express = urgent ? (tariff.express || 0) : 0;
+        return { km, dist, extra: w + s, door, express, total: dist + tariff.call + w + s + door + express };
       }
       let lastSys = null;
       function renderFare(keepWant) {
@@ -335,7 +352,7 @@
         $(el, '[data-trip]').textContent = `${sys.km} км`;
         lines.innerHTML = `<div><span>Зай ${sys.km} км × ${fmt(tariff.perKm)}₮</span><span>${fmt(sys.dist)}₮</span></div>
           <div><span>Дуудлага</span><span>${fmt(tariff.call)}₮</span></div>
-          <div><span>Жин, овор</span><span>${fmt(sys.extra)}₮</span></div>${sys.door ? `<div><span>Жолооч орж авна</span><span>${fmt(sys.door)}₮</span></div>` : ''}
+          <div><span>Жин, овор</span><span>${fmt(sys.extra)}₮</span></div>${sys.door ? `<div><span>Жолооч орж авна</span><span>${fmt(sys.door)}₮</span></div>` : ''}${sys.express ? `<div><span>Шуурхай хүргэлт</span><span>${fmt(sys.express)}₮</span></div>` : ''}
           <div class="total"><span>Бодогдсон үнэ</span><span>${fmt(sys.total)}₮</span></div>`;
         $(el, '[data-want]').textContent = fmt(want) + '₮';
         validate();
@@ -351,6 +368,7 @@
         $(el, '[data-sizes]').innerHTML = Object.entries(tariff.size).map(([k, s]) => `<button type="button" data-size="${k}" aria-pressed="${k === size}"><b>${esc(s.label)}</b><small>${esc(s.hint)}</small><em>${s.fee ? '+' + fmt(s.fee) + '₮' : 'Нэмэгдэлгүй'}</em></button>`).join('');
         $(el, '[data-boosts]').innerHTML = tariff.boosts.map(v => `<button type="button" data-add="${v}">+${fmt(v)}₮</button>`).join('') + `<button type="button" data-reset aria-label="Анхны үнэ">${I.close}</button>`;
         if (tariff.door) $(el, '[data-door-fee]').textContent = '+' + fmt(tariff.door) + '₮';
+        speedNote();
         renderFare();
       }).catch(e => Core.toast(e.message, 'error'));
       $(el, '[data-sizes]').addEventListener('click', e => { const b = e.target.closest('[data-size]'); if (!b) return; size = b.dataset.size; el.querySelectorAll('[data-size]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderFare(); });
@@ -422,8 +440,8 @@
           ${o.driverName ? `<div class="card pad driver-card"><span class="avatar">${esc(initials(o.driverName))}</span><span class="grow"><b>${esc(o.driverName)}</b><br><span class="sm muted">${esc(DRIVER_KIND[o.driverKind] || 'Жолооч')} · ${esc(o.driverVehicle || '')}</span></span>
             ${o.driverPhone && o.status === 'transit' ? `<a class="round-btn" href="tel:${esc(o.driverPhone)}" aria-label="Залгах">${I.phone}</a>` : ''}<button class="round-btn" data-chat aria-label="Чат">${I.chat}</button></div>` : ''}
           <div class="card pad"><div class="route"><span class="pt"><i></i></span><div class="addr"><small>Авах</small><div>${esc(o.from)}</div></div><span class="line"></span><span></span><span class="pt to"><i></i></span><div class="addr"><small>Хүргэх</small><div>${esc(o.to)}</div></div></div></div>
-          <div class="card pad kv"><div><span>Ачаа</span><span>${esc(o.title)}</span></div>${o.pickup === 'door' ? '<div><span>Ачаа авах</span><span>Жолооч орж авна</span></div>' : ''}${o.weight ? `<div><span>Жин</span><span>${esc(o.weight)} кг</span></div>` : ''}${o.urgent ? '<div><span>Яаралтай</span><span>Тийм</span></div>' : ''}${(o.needs || []).length ? `<div><span>Хэрэгсэл</span><span>${esc(o.needs.join(', '))}</span></div>` : ''}${o.note ? `<div><span>Тэмдэглэл</span><span>${esc(o.note)}</span></div>` : ''}</div>
-          <div class="card pad kv">${f ? `<div><span>Зай ${esc(f.km)} км</span><span>${fmt(f.distance)}₮</span></div><div><span>Дуудлага</span><span>${fmt(f.call)}₮</span></div>${f.weight ? `<div><span>Жин, овор</span><span>${fmt(f.weight)}₮</span></div>` : ''}${f.door ? `<div><span>Жолооч орж авна</span><span>${fmt(f.door)}₮</span></div>` : ''}${f.extra ? `<div><span>Таны нэмсэн</span><span>+${fmt(f.extra)}₮</span></div>` : ''}` : ''}<div class="total"><span>Нийт</span><span>${money(o.price)}</span></div></div>
+          <div class="card pad kv"><div><span>Ачаа</span><span>${esc(o.title)}</span></div>${o.pickup === 'door' ? '<div><span>Ачаа авах</span><span>Жолооч орж авна</span></div>' : ''}${o.weight ? `<div><span>Жин</span><span>${esc(o.weight)} кг</span></div>` : ''}<div><span>${o.urgent ? 'Шуурхай · хүргэх' : 'Хүргэх хугацаа'}</span><span>${esc(dueText(o))}</span></div>${o.status === 'done' && typeof o.onTime === 'boolean' ? `<div><span>Хугацаандаа</span><span>${o.onTime ? 'Тийм' : `${o.lateMin || ''} мин хоцорсон`}</span></div>` : ''}${(o.needs || []).length ? `<div><span>Хэрэгсэл</span><span>${esc(o.needs.join(', '))}</span></div>` : ''}${o.note ? `<div><span>Тэмдэглэл</span><span>${esc(o.note)}</span></div>` : ''}</div>
+          <div class="card pad kv">${f ? `<div><span>Зай ${esc(f.km)} км</span><span>${fmt(f.distance)}₮</span></div><div><span>Дуудлага</span><span>${fmt(f.call)}₮</span></div>${f.weight ? `<div><span>Жин, овор</span><span>${fmt(f.weight)}₮</span></div>` : ''}${f.door ? `<div><span>Жолооч орж авна</span><span>${fmt(f.door)}₮</span></div>` : ''}${f.express ? `<div><span>Шуурхай хүргэлт</span><span>${fmt(f.express)}₮</span></div>` : ''}${f.extra ? `<div><span>Таны нэмсэн</span><span>+${fmt(f.extra)}₮</span></div>` : ''}` : ''}<div class="total"><span>Нийт</span><span>${money(o.price)}</span></div></div>
           ${o.status === 'waiting' || o.status === 'transit' ? '<button class="btn btn-danger btn-block" data-cancel>Захиалга цуцлах</button>' : ''}
           ${o.status === 'cancelled' ? '<button class="btn btn-secondary btn-block" data-restore>Дахин захиалах</button>' : ''}`;
       }
@@ -510,7 +528,7 @@
               <button class="row" data-server><span class="ico">${I.server}</span><span class="grow"><span class="b" style="display:block">Сервер</span><span class="sub" style="display:block">${esc(Core.serverUrl().replace(/^https?:\/\//, '') || '—')}</span></span>${I.chevron}</button>
               <button class="row" data-logout><span class="ico bad">${I.logout}</span><span class="grow b" style="color:var(--danger)">Гарах</span></button>
             </div>
-            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.6</p>
+            <p class="sm faint" style="text-align:center">Log22 · хувилбар 0.3.7</p>
           </div></div>`;
       };
       draw(Core.user() || {}, []);

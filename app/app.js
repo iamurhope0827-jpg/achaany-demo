@@ -264,12 +264,20 @@
           Core.toast(err.code === 1 ? 'Байршлын зөвшөөрөл өгөөгүй байна. Утасны тохиргооноос зөвшөөрөх эсвэл газрын зураг дээр товшиж сонгоно уу.' : 'Байршил олдсонгүй. Газрын зураг дээр товшиж сонгоно уу.', 'error');
         }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
       });
-      picker.onPlaced((kind, ll) => placedAt(kind, ll));
-      async function placedAt(kind, ll) {
+      const addressVersion = { from: 0, to: 0 };
+      picker.onPlaced((kind, ll) => placedAt(kind, ll, true));
+      async function placedAt(kind, ll, refresh = false) {
         picker.manual(kind); placed[kind] = true;
         if (kind === 'from' && !picker.get().to) setMode('to');
         const inp = $(el, `[data-in="${kind}"]`);
-        if (!inp.value.trim()) { const a = await OrderMap.addressAt(ll); if (a && !inp.value.trim()) { inp.value = a; validate(); } }
+        const version = ++addressVersion[kind], previous = inp.value;
+        if (refresh || !previous.trim()) {
+          const a = await OrderMap.addressAt(ll), current = picker.get()[kind];
+          if (version === addressVersion[kind] && inp.value === previous && current && current[0] === ll[0] && current[1] === ll[1]) {
+            inp.value = a || `${ll[0].toFixed(6)}, ${ll[1].toFixed(6)}`;
+            validate();
+          }
+        }
         validate();
       }
       // optional place kind and its details, for both points

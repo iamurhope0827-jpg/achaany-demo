@@ -260,14 +260,15 @@ const OrderMap = (function () {
     let active = 'from';
     let line = null;
     const accent = css('--accent') || '#8a3d8f';
-    let traffic = null;
+    let traffic = null, redrawVersion = 0;
     async function redraw() {
+      const version = ++redrawVersion;
       if (line) { line.remove(); line = null; }
       if (traffic) { traffic.remove(); traffic = null; }
       let info = null;
       if (pts.from && pts.to) {
         const r = await route([pts.from, pts.to]);
-        if (!pts.from || !pts.to) return;
+        if (version !== redrawVersion || !pts.from || !pts.to) return;
         line = L.polyline(r.coords, { color: accent, weight: 4, opacity: 0.7, lineCap: 'round' }).addTo(map);
         traffic = trafficLayer(map, r.coords, r.congestion);
         info = { km: r.km, min: r.min, road: r.road, source: r.source, traffic: r.traffic };
@@ -306,13 +307,22 @@ const OrderMap = (function () {
 
   // the street address at a point, from OpenStreetMap's Nominatim (used once per placed pin)
   async function addressAt(ll) {
+    // Shared by the web form and native apps. The API key is held by server.ps1.
+    const client = typeof Core !== 'undefined' ? Core : (viaServer() ? Auth : null);
+    if (client) {
+      try { return (await client.api('/api/reverse-geocode', { ll })).address || ''; }
+      catch { /* Keep address lookup available when the demo backend is offline. */ }
+    }
+    const ctl = new AbortController();
+    const timeout = setTimeout(() => ctl.abort(), 8000);
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=mn&lat=${ll[0]}&lon=${ll[1]}`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=mn&lat=${ll[0]}&lon=${ll[1]}`, { signal: ctl.signal });
+      if (!r.ok) return "";
       const j = await r.json();
       const a = j.address || {};
       const parts = [a.city_district || a.suburb || a.county, a.quarter || a.neighbourhood, a.road, a.house_number].filter(Boolean);
       return parts.join(', ') || j.display_name || '';
-    } catch { return ''; }
+    } catch { return ''; } finally { clearTimeout(timeout); }
   }
 
   return { order, stops, city, picker, addressAt, districtOf, fromOf, toOf, km, inService };

@@ -271,15 +271,23 @@
     $('pick-mode').querySelectorAll('button').forEach(b => { b.classList.toggle('active', b.dataset.k === k); b.setAttribute('aria-pressed', b.dataset.k === k); });
   }
   $('pick-mode').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) setMode(b.dataset.k); });
+  const addressVersion = { from: 0, to: 0 };
+  async function fillAddress(kind, ll) {
+    const version = ++addressVersion[kind], input = $(kind), previous = input.value;
+    input.setAttribute('aria-busy', 'true');
+    const addr = await OrderMap.addressAt(ll);
+    if (version !== addressVersion[kind]) return;
+    input.removeAttribute('aria-busy');
+    const current = picker.get()[kind];
+    if (!current || current[0] !== ll[0] || current[1] !== ll[1] || input.value !== previous) return;
+    input.value = addr || `${ll[0].toFixed(6)}, ${ll[1].toFixed(6)}`;
+    if (!addr) App.toast('Хаяг олдсонгүй. Координатыг хадгаллаа. Хаягийн тайлбараа нэмж бичнэ үү.', 'error');
+    App.fieldError(form, kind, '');
+    summary();
+  }
   picker.onPlaced(async (kind, ll) => {
     picker.manual(kind);
-    if (kind === 'from' && !picker.get().to) setMode('to');
-    // an empty address field gets the street name at the pin
-    const input = $(kind);
-    if (!input.value.trim()) {
-      const addr = await OrderMap.addressAt(ll);
-      if (addr && !input.value.trim()) { input.value = addr; summary(); }
-    }
+    await fillAddress(kind, ll);
   });
   ['from', 'to'].forEach(k => $(k).addEventListener('change', () => picker.guess(k, $(k).value)));
 
@@ -291,6 +299,7 @@
     inp.addEventListener('focus', () => setMode(k));
     inp.addEventListener('input', () => {
       clearTimeout(timer);
+      seq++; addressVersion[k]++; inp.removeAttribute('aria-busy');
       const q = inp.value.trim();
       if (q.length < 2) { seq++; close(); return; }
       timer = setTimeout(async () => {
@@ -311,6 +320,7 @@
     box.addEventListener('click', e => {
       const b = e.target.closest('[data-sg]'); if (!b) return;
       const r = box._list[Number(b.dataset.sg)]; if (!r) return;
+      addressVersion[k]++;
       seq++; clearTimeout(timer);
       inp.value = r.address ? `${r.name}, ${r.address}` : r.name;
       close();
@@ -335,12 +345,10 @@
       btn.disabled = false;
       const ll = [pos.coords.latitude, pos.coords.longitude];
       if (OrderMap.inService && !OrderMap.inService(ll)) { App.toast('Таны байршил Улаанбаатараас гадна байна. Газрын зураг дээр дарж сонгоно уу.', 'error'); return; }
-      setMode('from');
-      picker.set('from', ll, { fly: true }); picker.manual('from');
-      if (!picker.get().to) setMode('to');
-      const a = await OrderMap.addressAt(ll);
-      if (a) { $('from').value = a; App.fieldError(form, 'from', ''); }
-      summary();
+      const kind = btn.dataset.kind || 'from';
+      setMode(kind);
+      picker.set(kind, ll, { fly: true }); picker.manual(kind);
+      await fillAddress(kind, ll);
     }, err => {
       btn.disabled = false;
       App.toast(err.code === 1 ? 'Байршлын зөвшөөрөл өгөөгүй байна. Хөтчийн тохиргооноос зөвшөөрөх эсвэл газрын зураг дээр дарж сонгоно уу.' : 'Байршил олдсонгүй. Газрын зураг дээр дарж сонгоно уу.', 'error');
@@ -449,5 +457,6 @@
   summary();
   $('title').focus();
 </script>
+<script src="address-picker.js"></script>
 </body>
 </html>
